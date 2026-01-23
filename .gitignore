@@ -1,0 +1,35 @@
+# --- CẤU HÌNH CHO WEB/NODEJS (Quan trọng cho đồ án Web App) ---
+node_modules/
+dist/
+build/
+.npm
+*.log
+
+# --- CẤU HÌNH CHO JAVA (Quan trọng cho bài tập Java) ---
+*.class
+*.jar
+*.war
+target/
+.gradle/
+build/
+
+# --- FILE MÔI TRƯỜNG & BẢO MẬT (RẤT QUAN TRỌNG) ---
+# Chặn file chứa Key thanh toán (PayOS, VNPAY...) và DB Config
+.env
+.env.local
+.env.production
+config.js
+secret.json
+
+# --- CÁC FILE CỦA IDE (Không nên push lên) ---
+.idea/
+.vscode/
+*.swp
+*.iml
+.classpath
+.project
+.settings/
+
+# --- FILE HỆ ĐIỀU HÀNH (Rác hệ thống) ---
+.DS_Store
+Thumbs.db

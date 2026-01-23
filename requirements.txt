@@ -1,0 +1,9 @@
+Django>=4.2
+djangorestframework
+markdown
+django-filter
+Pillow
+tensorflow
+numpy
+psycopg2-binary
+cornice
