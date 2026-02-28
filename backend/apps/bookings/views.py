@@ -88,11 +88,23 @@ class UpdateBookingStatusView(APIView):
         except Booking.DoesNotExist:
             return Response({"error": "Booking not found"}, status=404)
         
-        # Check permissions (only mechanic can accept/complete)
-        if booking.mechanic != request.user and booking.status != 'PENDING':
-             return Response({"error": "Not authorized"}, status=403)
+        # Check permissions
+        is_owner = (booking.customer == request.user)
+        is_assigned_mechanic = (booking.mechanic == request.user)
 
         new_status = request.data.get('status')
+
+        # Customer can only cancel
+        if is_owner and not is_assigned_mechanic:
+            if new_status != 'CANCELLED':
+                return Response({"error": "Customers can only cancel bookings"}, status=403)
+        
+        # Only assigned mechanic can accept/complete
+        elif is_assigned_mechanic:
+            pass # Mechanic can change to ACCEPTED, COMPLETED, CANCELLED
+        else:
+             return Response({"error": "Not authorized to update this booking"}, status=403)
+
         if new_status in ['ACCEPTED', 'COMPLETED', 'CANCELLED']:
             booking.status = new_status
             booking.save()

@@ -1,6 +1,22 @@
 <template>
   <div class="mechanic-container">
-    <van-nav-bar title="Dashboard Thợ" />
+    <van-nav-bar title="Dashboard Thợ">
+      <template #right>
+        <van-icon name="setting-o" size="20" @click="$router.push('/mechanic/profile')" />
+      </template>
+    </van-nav-bar>
+
+    <!-- Availability Banner -->
+    <van-notice-bar
+      :text="isAvailable ? 'Bạn đang SẴN SÀNG nhận đơn' : 'Bạn đang NGHỆ - Không nhận đơn'"
+      :color="isAvailable ? '#07c160' : '#ee0a24'"
+      :background="isAvailable ? '#f0fff8' : '#fff0f0'"
+      left-icon="clock-o"
+    >
+      <template #right-icon>
+        <van-switch v-model="isAvailable" size="18px" @change="updateAvailability" />
+      </template>
+    </van-notice-bar>
     
     <van-tabs v-model:active="activeTab" @change="refreshData">
         <van-tab title="SOS" name="SOS"></van-tab>
@@ -21,15 +37,18 @@
          <van-card
             v-for="item in filteredSOS"
             :key="'sos-'+item.id"
-            :tag="item.status"
+            :tag="translateStatus(item.status)"
             :price="item.problem_description"
             desc="Mô tả sự cố:"
-            :title="`Khách hàng #${item.customer}`"
+            :title="`Khách: #${item.customer}`"
             :thumb="'https://img.freepik.com/free-icon/user_318-159711.jpg'"
         >
             <template #footer>
                 <van-button v-if="item.status === 'PENDING'" size="small" type="primary" @click="updateSOSStatus(item.id, 'ACCEPTED')">Nhận Đơn</van-button>
-                <van-button v-if="item.status === 'ACCEPTED'" size="small" type="success" @click="updateSOSStatus(item.id, 'COMPLETED')">Hoàn Thành</van-button>
+                <div v-if="item.status === 'ACCEPTED'">
+                    <van-button size="small" type="warning" plain @click="viewRoute(item)">Chỉ Đường</van-button>
+                    <van-button size="small" type="success" @click="updateSOSStatus(item.id, 'COMPLETED')">Hoàn Thành</van-button>
+                </div>
             </template>
         </van-card>
     </div>
@@ -42,10 +61,10 @@
          <van-card
             v-for="item in appointments"
             :key="'appt-'+item.id"
-            :tag="item.status"
+            :tag="translateStatus(item.status)"
             :price="item.service_details.name"
             :desc="`Thời gian: ${formatDate(item.appointment_time)}`"
-            :title="`Khách: ${item.customer}`" 
+            :title="`Khách: ${item.customer_name || '#' + item.customer}`" 
              thumb="https://img.freepik.com/free-vector/date-picker-concept-illustration_114360-4668.jpg"
         >
             <template #tags>
@@ -105,13 +124,25 @@
         </div>
     </div>
 
+    <!-- MAP ROUTING DIALOG -->
+    <van-popup v-model:show="showMap" position="bottom" :style="{ height: '80%' }" @opened="initMap">
+        <div class="map-header">
+            <span class="title">Bản Đồ Chỉ Đường</span>
+            <van-icon name="cross" size="20" @click="showMap = false" />
+        </div>
+        <div id="mechanic-map" style="width: 100%; height: calc(100% - 40px);"></div>
+    </van-popup>
+
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, computed, nextTick } from 'vue';
 import axios from 'axios';
 import { showToast } from 'vant';
+import L from 'leaflet';
+import 'leaflet-routing-machine';
+import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
 
 const activeTab = ref('SOS');
 const sosSubTab = ref('PENDING');
@@ -122,6 +153,43 @@ const stats = ref({});
 const loadingSOS = ref(false);
 const loadingAppt = ref(false);
 const loadingStats = ref(false);
+
+// Availability state
+const isAvailable = ref(true);
+onMounted(() => {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+        try {
+            const user = JSON.parse(userStr);
+            if (user.mechanic_profile) {
+                isAvailable.value = user.mechanic_profile.is_available;
+            }
+        } catch(e) {}
+    }
+});
+
+const updateAvailability = async (val) => {
+    try {
+        const res = await axios.post('/api/users/mechanic/status/', { is_available: val });
+        // Update localStorage
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+            const user = JSON.parse(userStr);
+            if (user.mechanic_profile) user.mechanic_profile.is_available = val;
+            localStorage.setItem('user', JSON.stringify(user));
+        }
+        showToast(val ? 'Đã bật nhận đơn' : 'Đã tắt nhận đơn');
+    } catch(e) {
+        showToast('Lỗi cập nhật trạng thái');
+        isAvailable.value = !val; // revert
+    }
+}
+
+// Map State
+const showMap = ref(false);
+let mapInstance = null;
+let routingControl = null;
+const activeRouteItem = ref(null);
 
 const fetchSOS = async () => {
     loadingSOS.value = true;
@@ -192,12 +260,114 @@ const updateApptStatus = async (id, status) => {
     }
 }
 
+// MAP ROUTING LOGIC
+const viewRoute = (item) => {
+    activeRouteItem.value = item;
+    showMap.value = true;
+}
+
+const initMap = async () => {
+    if (!mapInstance) {
+        mapInstance = L.map('mechanic-map');
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(mapInstance);
+    }
+
+    // Clear previous routing controls and layers
+    if (routingControl) {
+        mapInstance.removeControl(routingControl);
+        routingControl = null;
+    }
+    mapInstance.eachLayer((layer) => {
+        if (layer instanceof L.Marker) {
+            mapInstance.removeLayer(layer);
+        }
+    });
+
+    const item = activeRouteItem.value;
+    if (!item) return;
+
+    // Get Mechanic's current location from user's profile
+    const userStr = localStorage.getItem('user');
+    
+    // Parse floats properly
+    const custLat = parseFloat(item.customer_lat);
+    const custLon = parseFloat(item.customer_lon);
+
+    // Mock slightly offset mechanic coord
+    let mechLat = custLat - 0.005; 
+    let mechLon = custLon - 0.005; 
+
+    if (userStr) {
+        try {
+            const user = JSON.parse(userStr);
+            if (user.mechanic_profile && user.mechanic_profile.latitude) {
+                mechLat = parseFloat(user.mechanic_profile.latitude);
+                mechLon = parseFloat(user.mechanic_profile.longitude);
+            }
+        } catch(e) {}
+    }
+
+    const mechIcon = L.icon({
+      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+      iconSize: [25, 41], iconAnchor: [12, 41]
+    });
+    const custIcon = L.icon({
+      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+      iconSize: [25, 41], iconAnchor: [12, 41]
+    });
+
+    // Use leaflet-routing-machine for detailed routing like Google Maps
+    routingControl = L.Routing.control({
+        waypoints: [
+            L.latLng(mechLat, mechLon),
+            L.latLng(custLat, custLon)
+        ],
+        routeWhileDragging: false,
+        addWaypoints: false,
+        // language: 'vi', // Removed because leaflet-routing-machine might not have 'vi' built-in without extra files
+        createMarker: function(i, waypoint, n) {
+            // Use custom markers for start and end
+            const markerIcon = (i === 0) ? mechIcon : custIcon;
+            const popupText = (i === 0) ? "Vị trí của bạn" : "Vị trí Khách hàng";
+            const marker = L.marker(waypoint.latLng, { icon: markerIcon });
+            marker.bindPopup(popupText);
+            if(i === 0) marker.openPopup();
+            return marker;
+        },
+        lineOptions: {
+            styles: [{ color: '#1989fa', opacity: 0.8, weight: 6 }]
+        },
+        show: false // Hide turn-by-turn text UI by default to save space
+    }).addTo(mapInstance);
+
+    // Resize map when shown in popup to fix leaflet tile loading issue
+    // Ensure this runs after the popup animation has completely finished
+    setTimeout(() => {
+        if (mapInstance) {
+            mapInstance.invalidateSize();
+            // Refit bounds just in case
+            const group = new L.featureGroup([
+               L.marker([mechLat, mechLon]),
+               L.marker([custLat, custLon])
+            ]);
+            mapInstance.fitBounds(group.getBounds(), { padding: [50, 50] });
+        }
+    }, 500); // 500ms delay to allow van-popup to finish animating
+}
+
 const formatDate = (dateStr) => {
     return new Date(dateStr).toLocaleString('vi-VN');
 }
 
 const formatPrice = (p) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p || 0);
+}
+
+const translateStatus = (s) => {
+    const map = { 'PENDING': 'Chờ', 'ACCEPTED': 'Đang làm', 'CONFIRMED': 'Đã có lịch', 'COMPLETED': 'Xong', 'CANCELLED': 'Đã hủy' };
+    return map[s] || s;
 }
 </script>
 
@@ -227,6 +397,12 @@ const formatPrice = (p) => {
     min-height: 100vh;
     padding-bottom: 60px;
 }
+.map-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 15px; background: #fff; border-bottom: 1px solid #ebedf0;
+}
+.map-header .title { font-weight: bold; font-size: 16px; }
+
 .p-2 { padding: 10px; }
 .mt-1 { margin-top: 5px; color: #666; font-size: 12px; }
 </style>

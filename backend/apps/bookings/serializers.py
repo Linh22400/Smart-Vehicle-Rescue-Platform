@@ -3,9 +3,11 @@ from .models import Booking
 from apps.users.serializers import UserSerializer
 
 class BookingSerializer(serializers.ModelSerializer):
+    mechanic_name = serializers.CharField(source='mechanic.username', read_only=True, default='')
+
     class Meta:
         model = Booking
-        fields = '__all__'
+        fields = ['id', 'customer', 'mechanic', 'mechanic_name', 'status', 'created_at', 'customer_lat', 'customer_lon', 'problem_description']
         read_only_fields = ('customer', 'status', 'created_at')
 
 class MechanicDistanceSerializer(serializers.Serializer):

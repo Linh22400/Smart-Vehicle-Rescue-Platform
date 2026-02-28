@@ -49,11 +49,20 @@ class UpdateAppointmentStatusView(APIView):
         except Appointment.DoesNotExist:
             return Response({"error": "Appointment not found"}, status=404)
         
-        # Check permission: Only the assigned mechanic can update
-        if appt.mechanic.user != request.user:
+        # Check permission
+        is_owner = (appt.customer == request.user)
+        is_mechanic = (appt.mechanic.user == request.user)
+        
+        new_status = request.data.get('status')
+
+        if is_owner and not is_mechanic:
+            if new_status != 'CANCELLED':
+                return Response({"error": "Customers can only cancel appointments"}, status=403)
+        elif is_mechanic:
+             pass
+        else:
              return Response({"error": "Not authorized"}, status=403)
 
-        new_status = request.data.get('status')
         if new_status in ['CONFIRMED', 'COMPLETED', 'CANCELLED']:
             appt.status = new_status
             appt.save()

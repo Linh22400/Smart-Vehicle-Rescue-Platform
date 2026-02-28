@@ -1,4 +1,4 @@
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, logout
 from rest_framework import generics, permissions, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -26,6 +26,13 @@ class LoginView(APIView):
         else:
             return Response({"error": "Invalid credentials"}, status=400)
 
+class LogoutView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        logout(request)
+        return Response({"message": "Successfully logged out."})
+
 class MechanicStatusView(APIView):
     """
     Update mechanic location and availability.
@@ -46,6 +53,26 @@ class MechanicStatusView(APIView):
         
         if 'is_available' in data:
             profile.is_available = data['is_available']
+        
+        if 'specialty' in data:
+            profile.specialty = data['specialty']
             
         profile.save()
         return Response(MechanicProfileSerializer(profile).data)
+
+class UserProfileView(APIView):
+    """Get current user's full profile data."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        return Response(UserSerializer(request.user).data)
+
+    def patch(self, request):
+        """Update phone_number and email."""
+        user = request.user
+        if 'phone_number' in request.data:
+            user.phone_number = request.data['phone_number']
+        if 'email' in request.data:
+            user.email = request.data['email']
+        user.save()
+        return Response(UserSerializer(user).data)

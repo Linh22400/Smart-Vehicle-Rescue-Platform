@@ -48,11 +48,13 @@
 
 <script setup>
 import { onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { showToast, showSuccessToast } from 'vant';
 import L from 'leaflet';
 
 // State
+const router = useRouter();
 const map = ref(null);
 const userLat = ref(null);
 const userLon = ref(null);
@@ -65,6 +67,7 @@ axios.defaults.baseURL = 'http://localhost:8000';
 const mechanics = ref([]);
 const showMechanics = ref(false);
 const loading = ref(false);
+let mechanicMarkers = null; // LayerGroup for easy clearing
 
 const showAIModal = ref(false);
 const fileList = ref([]);
@@ -106,6 +109,8 @@ function initMap(lat, lon) {
   map.value.on('click', (e) => {
     updateUserLocation(e.latlng.lat, e.latlng.lng);
   });
+  // Init mechanic markers layer group
+  mechanicMarkers = L.layerGroup().addTo(map.value);
 }
 
 function updateUserLocation(lat, lon) {
@@ -157,10 +162,10 @@ async function handleSOS() {
     mechanics.value = response.data;
     showMechanics.value = true;
     
-    // Clear old mechanic markers? For MVP just add new ones
-    // Really we should use a LayerGroup to clear old ones, keeping it simple
+    // Clear previous mechanic markers before adding new
+    if (mechanicMarkers) mechanicMarkers.clearLayers();
     mechanics.value.forEach(m => {
-        L.marker([m.latitude, m.longitude]).addTo(map.value)
+        L.marker([m.latitude, m.longitude]).addTo(mechanicMarkers)
          .bindPopup(`<b>${m.username}</b><br>${m.specialty}<br>${m.distance_km}km`);
     });
 
@@ -186,6 +191,7 @@ async function bookMechanic(mech) {
         });
         showSuccessToast(`Đã gửi yêu cầu đến ${mech.username}!`);
         showMechanics.value = false;
+        router.push('/history');
     } catch (error) {
         showToast('Lỗi đặt thợ. Vui lòng thử lại.');
         console.error(error);
@@ -217,7 +223,7 @@ async function analyzeImage(file) {
 }
 .sos-button-container {
   position: absolute;
-  bottom: 20px;
+  bottom: 80px;
   left: 50%;
   transform: translateX(-50%);
   width: 90%;

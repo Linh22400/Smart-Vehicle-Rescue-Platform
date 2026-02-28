@@ -1,6 +1,15 @@
 <template>
   <div class="register-container">
-    <h2 class="title">ĐĂNG KÝ</h2>
+    <van-nav-bar title="Đăng Ký" left-arrow @click-left="$router.go(-1)" />
+    <div class="logo-wrap">
+      <van-image
+        width="100"
+        height="100"
+        src="https://img.freepik.com/free-vector/towing-car-concept-illustration_114360-1250.jpg"
+        class="logo"
+      />
+      <h2 class="title">TẠO TÀI KHOẢN</h2>
+    </div>
     <van-form @submit="onSubmit">
       <van-cell-group inset>
         <van-field
@@ -26,6 +35,22 @@
           placeholder="Xác nhận mật khẩu"
           :rules="[{ required: true, message: 'Vui lòng xác nhận mật khẩu' }]"
         />
+        <van-field
+          v-model="email"
+          type="email"
+          name="email"
+          label="Email"
+          placeholder="Nhập email (tùy chọn)"
+          left-icon="envelop-o"
+        />
+        <van-field
+          v-model="phoneNumber"
+          type="tel"
+          name="phone_number"
+          label="Số ĐT"
+          placeholder="Nhập số điện thoại"
+          left-icon="phone-o"
+        /> 
         <van-field name="isMechanic" label="Bạn là thợ?">
           <template #input>
             <van-switch v-model="isMechanic" />
@@ -38,7 +63,7 @@
           Đăng Ký
         </van-button>
         <van-button round block type="default" class="mt-2" to="/login">
-          Quay lại Đăng nhập
+          Đã có tài khoản? Đăng nhập
         </van-button>
       </div>
     </van-form>
@@ -55,6 +80,8 @@ const router = useRouter();
 const username = ref('');
 const password = ref('');
 const confirmPassword = ref('');
+const email = ref('');
+const phoneNumber = ref('');
 const isMechanic = ref(false);
 const loading = ref(false);
 
@@ -69,7 +96,9 @@ const onSubmit = async (values) => {
     await axios.post('/api/users/register/', {
         username: values.username,
         password: values.password,
-        is_mechanic: isMechanic.value
+        is_mechanic: isMechanic.value,
+        email: email.value || '',
+        phone_number: phoneNumber.value || ''
     });
     
     showSuccessToast('Đăng ký thành công! Vui lòng đăng nhập.');
@@ -85,14 +114,18 @@ const onSubmit = async (values) => {
 
 <style scoped>
 .register-container {
-    padding-top: 50px;
-    text-align: center;
     background-color: #f7f8fa;
     min-height: 100vh;
+    padding-bottom: 40px;
+}
+.logo-wrap {
+    padding-top: 20px;
+    text-align: center;
 }
 .title {
     color: #1989fa;
-    margin-bottom: 30px;
+    margin: 10px 0 20px 0;
+    font-size: 20px;
 }
 .mt-2 { margin-top: 10px; }
 </style>

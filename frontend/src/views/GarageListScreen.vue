@@ -5,6 +5,7 @@
     <van-search v-model="search" placeholder="Tìm dịch vụ, tên Gara..." />
 
     <div v-if="loading" class="text-center p-4">Đang tải danh sách...</div>
+    <van-empty v-else-if="filteredMechanics.length === 0" description="Chưa có Gara nào. Hãy thử tìm kiếm khác." />
 
     <div class="p-2" v-else>
       <van-card
@@ -16,7 +17,8 @@
       >
         <template #tags>
           <van-tag type="warning">{{ mech.rating }} ★</van-tag>
-          <van-collapse v-model="activeNames" accordion>
+          <van-tag type="primary" style="margin-left:5px">{{ mech.services.length }} dịch vụ</van-tag>
+          <van-collapse v-if="mech.services.length > 0" v-model="activeNames" accordion style="margin-top:8px">
             <van-collapse-item :title="`Xem ${mech.services.length} Dịch vụ`" :name="mech.id">
                  <van-cell 
                     v-for="svc in mech.services" 
@@ -28,6 +30,7 @@
                 />
             </van-collapse-item>
           </van-collapse>
+          <div v-else style="margin-top:8px; font-size:12px; color:#999">Chưa có dịch vụ đăng ký</div>
         </template>
       </van-card>
     </div>
