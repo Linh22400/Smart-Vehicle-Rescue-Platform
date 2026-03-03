@@ -1,13 +1,18 @@
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Quick-start development settings - unsuitable for production
-SECRET_KEY = 'django-insecure-mvp-secret-key-change-me'
-DEBUG = True
-ALLOWED_HOSTS = ['*']
+# Load .env file (silently ignored if not present)
+load_dotenv(BASE_DIR / '.env')
+
+# ─── Security ────────────────────────────────────────────────────────────────
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-fallback-for-dev')
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
+
 
 # Application definition
 INSTALLED_APPS = [
@@ -77,6 +82,9 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# AI Configuration - Google Gemini API
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
 
 # CORS CONFIGURATION
 CORS_ALLOWED_ORIGINS = [

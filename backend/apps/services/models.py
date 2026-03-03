@@ -36,6 +36,12 @@ class Review(models.Model):
     customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     mechanic = models.ForeignKey(MechanicProfile, on_delete=models.CASCADE, related_name='reviews')
     appointment = models.OneToOneField(Appointment, on_delete=models.CASCADE, null=True, blank=True, related_name='review')
+    sos_booking = models.OneToOneField(
+        'bookings.Booking',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='review',
+    )
     rating = models.IntegerField(default=5) # 1-5
     comment = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

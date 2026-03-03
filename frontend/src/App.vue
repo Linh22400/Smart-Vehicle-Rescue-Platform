@@ -11,7 +11,7 @@
       <van-tabbar-item replace to="/booking" icon="location-o">Cứu Hộ</van-tabbar-item>
       <van-tabbar-item replace to="/garages" icon="shop-o">Dịch Vụ</van-tabbar-item>
       <van-tabbar-item replace to="/history" icon="orders-o">Lịch Sử</van-tabbar-item>
-      <van-tabbar-item replace to="/mechanic" icon="tools" v-if="isMechanicUser()">Thợ</van-tabbar-item>
+      <van-tabbar-item replace to="/mechanic" icon="manager-o" v-if="isMechanicUser()">Thợ</van-tabbar-item>
       <van-tabbar-item replace to="/profile" icon="user-o">Tài Khoản</van-tabbar-item>
     </van-tabbar>
   </div>

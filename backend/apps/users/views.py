@@ -61,18 +61,44 @@ class MechanicStatusView(APIView):
         return Response(MechanicProfileSerializer(profile).data)
 
 class UserProfileView(APIView):
-    """Get current user's full profile data."""
+    """Get and update current user's profile."""
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         return Response(UserSerializer(request.user).data)
 
     def patch(self, request):
-        """Update phone_number and email."""
         user = request.user
-        if 'phone_number' in request.data:
-            user.phone_number = request.data['phone_number']
-        if 'email' in request.data:
-            user.email = request.data['email']
+        data = request.data
+
+        # Basic fields
+        for field in ('first_name', 'last_name', 'email', 'phone_number'):
+            if field in data:
+                setattr(user, field, data[field])
+
+        # Password change (requires current_password)
+        new_password = data.get('new_password', '').strip()
+        if new_password:
+            current_password = data.get('current_password', '')
+            if not user.check_password(current_password):
+                return Response(
+                    {'error': 'Mật khẩu hiện tại không đúng'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if len(new_password) < 6:
+                return Response(
+                    {'error': 'Mật khẩu mới phải có ít nhất 6 ký tự'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            user.set_password(new_password)
+
         user.save()
-        return Response(UserSerializer(user).data)
+
+        # Re-login if password changed (session-based auth)
+        if new_password:
+            from django.contrib.auth import update_session_auth_hash
+            update_session_auth_hash(request, user)
+
+        serialized = UserSerializer(user).data
+        return Response(serialized)
+

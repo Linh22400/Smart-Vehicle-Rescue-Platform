@@ -16,10 +16,26 @@ build/
 # --- FILE MÔI TRƯỜNG & BẢO MẬT (RẤT QUAN TRỌNG) ---
 # Chặn file chứa Key thanh toán (PayOS, VNPAY...) và DB Config
 .env
+.env.*
+!.env.example
 .env.local
 .env.production
 config.js
 secret.json
+
+# --- PYTHON / DJANGO ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+venv/
+env/
+.venv/
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
 
 # --- CÁC FILE CỦA IDE (Không nên push lên) ---
 .idea/

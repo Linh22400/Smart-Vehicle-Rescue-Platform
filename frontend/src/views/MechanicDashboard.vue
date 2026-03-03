@@ -372,37 +372,120 @@ const translateStatus = (s) => {
 </script>
 
 <style scoped>
-.revenue-card {
-    background: white;
-    padding: 20px;
-    border-radius: 10px;
-    text-align: center;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    margin-bottom: 20px;
-}
-.revenue-card h3 { margin: 0 0 10px 0; color: #666; font-size: 14px; }
-.revenue-card .price { font-size: 28px; font-weight: bold; color: #1989fa; }
-.stat-text { text-align: center; font-size: 12px; margin-top: 5px; }
-.mini-price { font-weight: bold; color: #333; }
-.mt-4 { margin-top: 20px; }
-
-.chart-mock {
-    background: white; padding: 15px; border-radius: 8px; text-align: center;
-}
-.bars { display: flex; align-items: flex-end; justify-content: space-around; height: 100px; padding-top: 10px;}
-.bar { width: 10%; background: #ebedf0; border-radius: 4px; font-size: 10px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 2px; color: #666; }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
 
 .mechanic-container {
-    background: #f7f8fa;
-    min-height: 100vh;
-    padding-bottom: 60px;
+  background: #f3f4f8;
+  min-height: 100vh;
+  padding-bottom: 70px;
+  font-family: 'Inter', sans-serif;
 }
+
+/* Override nav-bar */
+:deep(.van-nav-bar) {
+  background: linear-gradient(135deg, #1a6fdf, #4f46e5) !important;
+}
+:deep(.van-nav-bar__title) { color: #fff !important; font-weight: 700; }
+:deep(.van-nav-bar .van-icon) { color: #fff !important; }
+
+/* Availability banner */
+:deep(.van-notice-bar) {
+  border-radius: 0;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* Tabs */
+:deep(.van-tabs__wrap) { background: #fff; }
+
+.p-2 { padding: 12px; }
+.mt-1 { margin-top: 5px; color: #888; font-size: 12px; }
+
+/* ─── SOS / Appt order card ─── */
+.order-card {
+  background: #fff;
+  border-radius: 14px;
+  margin-bottom: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+}
+.order-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 14px;
+  gap: 12px;
+  border-bottom: 1px solid #f3f4f8;
+}
+.order-avatar {
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #e0eaff, #c7d7ff);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  color: #2563eb;
+  font-size: 18px;
+}
+.order-meta { flex: 1; min-width: 0; }
+.order-title { font-size: 14px; font-weight: 700; color: #1a1a2e; }
+.order-sub { font-size: 12px; color: #aaa; margin-top: 2px; }
+.order-status-chip {
+  font-size: 11px; font-weight: 700;
+  padding: 3px 10px; border-radius: 20px;
+}
+.chip-pending  { background: #fff8e1; color: #b45309; }
+.chip-accepted { background: #e0eaff; color: #2563eb; }
+.chip-completed { background: #d4fae4; color: #1a7a4a; }
+.chip-cancelled { background: #f3f4f8; color: #aaa; }
+
+.order-body { padding: 10px 14px; }
+.order-field { font-size: 12px; color: #666; margin-bottom: 4px; }
+.order-field strong { color: #333; }
+
+.order-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #fafafa;
+  border-top: 1px solid #f3f4f8;
+}
+
+/* ─── Revenue / Stats ─── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.revenue-card {
+  background: #fff;
+  padding: 16px;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  text-align: center;
+}
+.revenue-card h3 { margin: 0 0 8px; color: #aaa; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.revenue-card .price { font-size: 20px; font-weight: 700; color: #2563eb; }
+.revenue-card-full { grid-column: 1 / -1; }
+
+.chart-mock { background: #fff; padding: 14px; border-radius: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.chart-mock p { font-size: 12px; color: #aaa; margin-bottom: 10px; font-weight: 600; text-transform: uppercase; }
+.bars { display: flex; align-items: flex-end; justify-content: space-around; height: 80px; }
+.bar {
+  width: 9%; border-radius: 6px 6px 0 0;
+  font-size: 9px; display: flex; align-items: flex-end;
+  justify-content: center; padding-bottom: 2px;
+  color: #fff; font-weight: 700;
+  background: linear-gradient(180deg, #4f46e5, #2563eb);
+}
+
 .map-header {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 10px 15px; background: #fff; border-bottom: 1px solid #ebedf0;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 15px; background: #fff; border-bottom: 1px solid #ebedf0;
 }
 .map-header .title { font-weight: bold; font-size: 16px; }
-
-.p-2 { padding: 10px; }
-.mt-1 { margin-top: 5px; color: #666; font-size: 12px; }
+.mt-4 { margin-top: 16px; }
+.stat-text { text-align: center; font-size: 12px; margin-top: 6px; color: #888; }
+.mini-price { font-weight: 700; color: #2563eb; }
 </style>
+

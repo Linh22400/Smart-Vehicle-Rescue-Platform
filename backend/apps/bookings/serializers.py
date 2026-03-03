@@ -4,11 +4,18 @@ from apps.users.serializers import UserSerializer
 
 class BookingSerializer(serializers.ModelSerializer):
     mechanic_name = serializers.CharField(source='mechanic.username', read_only=True, default='')
+    has_sos_review = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
-        fields = ['id', 'customer', 'mechanic', 'mechanic_name', 'status', 'created_at', 'customer_lat', 'customer_lon', 'problem_description']
+        fields = ['id', 'customer', 'mechanic', 'mechanic_name', 'has_sos_review',
+                  'status', 'created_at', 'customer_lat', 'customer_lon', 'problem_description']
         read_only_fields = ('customer', 'status', 'created_at')
+
+    def get_has_sos_review(self, obj):
+        from apps.services.models import Review
+        return Review.objects.filter(sos_booking=obj).exists()
+
 
 class MechanicDistanceSerializer(serializers.Serializer):
     id = serializers.IntegerField(source='user.id')
