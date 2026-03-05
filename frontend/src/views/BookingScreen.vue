@@ -9,11 +9,22 @@
         <van-icon name="scan" size="16" />
         Chẩn Đoán AI
       </button>
-      <button class="fab-sos" @click="handleSOS" :disabled="loading">
+      <button class="fab-sos" @click="showVehicleSheet = true" :disabled="loading">
         <van-icon name="phone-o" size="18" />
         <span>{{ loading ? '...' : 'SOS Cứu Hộ' }}</span>
       </button>
     </div>
+
+    <!-- Vehicle Type Selection Sheet -->
+    <van-action-sheet v-model:show="showVehicleSheet" title="Xe của bạn là loại gì?">
+      <div class="vehicle-selection p-4">
+        <van-radio-group v-model="selectedVehicle" class="vehicle-radio" direction="horizontal">
+          <van-radio name="BIKE">🏍️ Xe Máy</van-radio>
+          <van-radio name="CAR">🚗 Ô Tô</van-radio>
+        </van-radio-group>
+        <van-button class="mt-4" type="danger" block round @click="confirmSOS">Tiếp tục Gắn Tìm Thợ</van-button>
+      </div>
+    </van-action-sheet>
 
     <!-- Floating Mechanic Cards (Uber/Grab style) -->
     <transition name="slide-up">
@@ -77,31 +88,99 @@
 
         <!-- Header -->
         <div class="ai-header">
-          <div class="ai-header-icon"><van-icon name="scan" size="26" color="#5c6bc0" /></div>
+          <div class="ai-header-icon">
+            <Stethoscope :size="24" color="#5c6bc0" :stroke-width="1.8" />
+          </div>
           <div>
             <div class="ai-header-title">Chẩn Đoán Xe</div>
-            <!--<div class="ai-header-sub">Powered by Gemini AI</div>-->
           </div>
         </div>
 
-        <!-- Upload State -->
+        <!-- Upload/Record State -->
         <div v-if="!aiResult" class="ai-upload-state">
-          <div v-if="!aiLoading">
-            <div class="ai-upload-icon"><van-icon name="photograph" size="48" color="#bbb" /></div>
-            <p class="ai-upload-title">Chụp ảnh phần hư hỏng</p>
-            <p class="ai-upload-desc">AI sẽ phân tích và ước tính chi phí sửa chữa cho bạn</p>
-            <van-uploader
-              v-model="fileList"
-              :max-count="1"
-              :after-read="analyzeImage"
-              accept="image/*"
-            />
-          </div>
-          <div v-else class="ai-analyzing">
-            <div class="ai-spinner"></div>
-            <p class="ai-analyzing-text">AI đang phân tích…</p>
-            <p class="ai-analyzing-sub">Thường mất 5–15 giây</p>
-          </div>
+          <van-tabs v-model:active="aiTab" animated swipeable color="#5c6bc0" title-active-color="#5c6bc0">
+            <!-- Image Tab -->
+            <van-tab name="image">
+              <template #title><Camera :size="14" style="vertical-align:-2px;margin-right:4px" />Phân tích Ảnh</template>
+              <div class="ai-tab-content">
+                <div v-if="!aiLoading">
+                  <div class="ai-upload-icon"><Camera :size="52" color="#d1d5db" :stroke-width="1.3" /></div>
+                  <p class="ai-upload-title">Chụp ảnh phần hư hỏng</p>
+                  <p class="ai-upload-desc">AI sẽ phân tích và ước tính chi phí cho bạn</p>
+                  <van-uploader v-model="fileList" :max-count="1" :after-read="analyzeImage" accept="image/*" />
+                </div>
+                <div v-else class="ai-analyzing">
+                  <div class="ai-spinner"></div>
+                  <p class="ai-analyzing-text">AI đang phân tích ảnh…</p>
+                  <p class="ai-analyzing-sub">Thường mất 5–15 giây</p>
+                </div>
+              </div>
+            </van-tab>
+
+            <!-- Sound Tab -->
+            <van-tab name="sound">
+              <template #title><Mic :size="14" style="vertical-align:-2px;margin-right:4px" />Phân tích Âm thanh</template>
+              <div class="ai-tab-content">
+                <div v-if="!aiLoading">
+                  
+                  <!-- PREVIEW STATE -->
+                  <div v-if="audioPreviewUrl" class="audio-preview-state">
+                    <div class="ai-upload-icon" style="margin-bottom: 12px">
+                      <Mic :size="40" color="#5c6bc0" :stroke-width="1.5" />
+                    </div>
+                    <p class="ai-upload-title">Nghe lại âm thanh</p>
+                    <p class="ai-upload-desc">Bạn có thể nghe lại trước khi gửi cho AI phân tích</p>
+                    
+                    <audio controls :src="audioPreviewUrl" class="custom-audio-player"></audio>
+                    
+                    <div class="audio-preview-actions">
+                      <button class="btn-cancel-audio" @click="cancelAudioPreview">
+                        <XCircle :size="16" /> Hủy bỏ
+                      </button>
+                      <button class="btn-confirm-audio" @click="confirmAnalyzeAudio">
+                        <Stethoscope :size="16" /> Phân tích ngay
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- RECORD / UPLOAD STATE -->
+                  <div v-else>
+                    <div class="ai-upload-icon">
+                      <Mic :size="52" :color="isRecording ? '#ef4444' : '#d1d5db'" :stroke-width="1.3" :class="{ 'pulse-record': isRecording }" />
+                    </div>
+                    <p class="ai-upload-title">{{ isRecording ? 'Đang ghi âm...' : 'Ghi âm tiếng động lạ' }}</p>
+                    <p class="ai-upload-desc">
+                      {{ isRecording
+                          ? `Hãy để điện thoại gần nguồn phát ra âm thanh. (${recordingDuration}/30s)`
+                          : 'Thu âm hoặc tải tệp lên để AI đoán bệnh' }}
+                    </p>
+                    <div class="audio-controls">
+                      <button v-if="!isRecording" class="btn-record-start" @click="startRecording">
+                        <CirclePlay :size="17" /> Bắt đầu ghi âm
+                      </button>
+                      <button v-else class="btn-record-stop" @click="stopRecording">
+                        <CircleStop :size="17" /> Dừng ghi âm
+                      </button>
+                      
+                      <div v-if="!isRecording" class="audio-upload-wrapper" style="margin-top: 16px;">
+                        <van-uploader v-model="audioFileList" :max-count="1" :after-read="uploadAudioFile" accept="audio/*">
+                          <button class="btn-upload-audio" type="button">
+                            <Upload :size="15" /> Tải tệp âm thanh có sẵn
+                          </button>
+                        </van-uploader>
+                      </div>
+                    </div>
+                  </div>
+                  
+                </div>
+                <div v-else class="ai-analyzing">
+                  <div class="ai-spinner"></div>
+                  <p class="ai-analyzing-text">AI đang nghe và phân tích…</p>
+                  <p class="ai-analyzing-sub">Thường mất 5–15 giây</p>
+                </div>
+              </div>
+            </van-tab>
+          </van-tabs>
         </div>
 
         <!-- Result State -->
@@ -121,17 +200,17 @@
           <!-- Diagnosis Block -->
           <div class="ai-card">
             <div class="ai-section-head">
-              <div class="ai-icon-box blue"><van-icon name="description" size="14" color="#fff" /></div>
+              <div class="ai-icon-box blue"><FileText :size="14" color="#fff" :stroke-width="2" /></div>
               <span>Chẩn đoán</span>
             </div>
             <div class="ai-card-value">{{ aiResult.diagnosis }}</div>
             <div v-if="aiResult.root_cause" class="ai-root-cause">
-              <van-icon name="question-o" size="12" color="#a0aec0" />
+              <HelpCircle :size="13" color="#a0aec0" style="flex-shrink:0" />
               <span>{{ aiResult.root_cause }}</span>
             </div>
             <div class="ai-divider"></div>
             <div class="ai-section-head">
-              <div class="ai-icon-box purple"><van-icon name="notes-o" size="14" color="#fff" /></div>
+              <div class="ai-icon-box purple"><ClipboardList :size="14" color="#fff" :stroke-width="2" /></div>
               <span>Mô tả chi tiết</span>
             </div>
             <div class="ai-card-detail">{{ aiResult.details }}</div>
@@ -140,24 +219,20 @@
           <!-- Parts Needed -->
           <div v-if="aiResult.parts_needed && aiResult.parts_needed.length > 0" class="ai-parts-wrap">
             <div class="ai-section-head" style="padding: 10px 14px 6px">
-              <div class="ai-icon-box green"><van-icon name="setting-o" size="13" color="#fff" /></div>
+              <div class="ai-icon-box green"><Wrench :size="13" color="#fff" :stroke-width="2" /></div>
               <span>Linh kiện có thể cần thay</span>
             </div>
             <div class="ai-parts-list">
-              <span v-for="part in aiResult.parts_needed" :key="part" class="ai-part-chip">
-                {{ part }}
-              </span>
+              <span v-for="part in aiResult.parts_needed" :key="part" class="ai-part-chip">{{ part }}</span>
             </div>
           </div>
 
-          <!-- Price Breakdown Table -->
+          <!-- Price Breakdown -->
           <div class="ai-price-card">
             <div class="ai-price-header">
-              <div class="ai-icon-box indigo"><van-icon name="balance-o" size="13" color="#fff" /></div>
+              <div class="ai-icon-box indigo"><BadgeDollarSign :size="13" color="#fff" :stroke-width="2" /></div>
               <span>Bảng giá tham khảo</span>
             </div>
-
-            <!-- Parts cost row -->
             <div class="ai-price-row">
               <div class="apr-left">
                 <div class="apr-dot" style="background:#10b981"></div>
@@ -166,12 +241,8 @@
                   <span class="apr-range">{{ aiResult.parts_cost || 'Chưa xác định' }}</span>
                 </div>
               </div>
-              <div v-if="aiResult.parts_recommended" class="apr-recommend green">
-                {{ aiResult.parts_recommended }}
-              </div>
+              <div v-if="aiResult.parts_recommended" class="apr-recommend green">{{ aiResult.parts_recommended }}</div>
             </div>
-
-            <!-- Labor cost row -->
             <div class="ai-price-row">
               <div class="apr-left">
                 <div class="apr-dot" style="background:#f59e0b"></div>
@@ -180,12 +251,8 @@
                   <span class="apr-range">{{ aiResult.labor_cost || 'Chưa xác định' }}</span>
                 </div>
               </div>
-              <div v-if="aiResult.labor_recommended" class="apr-recommend amber">
-                {{ aiResult.labor_recommended }}
-              </div>
+              <div v-if="aiResult.labor_recommended" class="apr-recommend amber">{{ aiResult.labor_recommended }}</div>
             </div>
-
-            <!-- Total highlight box -->
             <div class="ai-total-box">
               <div class="ai-total-left">
                 <div class="ai-total-label">Tổng ước tính</div>
@@ -196,22 +263,18 @@
                 <div class="ai-total-rec-value">{{ aiResult.total_recommended || '—' }}</div>
               </div>
             </div>
-
             <div v-if="aiResult.price_note" class="ai-price-note">
-              <van-icon name="bulb-o" size="13" color="#b45309" style="flex-shrink:0;margin-top:1px" />
+              <Lightbulb :size="13" color="#b45309" style="flex-shrink:0;margin-top:1px" />
               <span>{{ aiResult.price_note }}</span>
             </div>
           </div>
-
 
           <!-- Urgency Bar -->
           <div class="ai-stats-row">
             <div class="ai-stat-box full">
               <div class="ai-stat-label">Mức khẩn cấp</div>
               <div class="ai-urgency-bar">
-                <div
-                  v-for="i in 5" :key="i"
-                  class="ai-urgency-seg"
+                <div v-for="i in 5" :key="i" class="ai-urgency-seg"
                   :class="i <= aiResult.urgency_level ? 'seg-' + severityKey : 'seg-off'"
                 ></div>
               </div>
@@ -221,7 +284,7 @@
           <!-- Warning Signs -->
           <div v-if="aiResult.warning_signs" class="ai-warning-box">
             <div class="ai-icon-box red" style="flex-shrink:0">
-              <van-icon name="fire-o" size="14" color="#fff" />
+              <TriangleAlert :size="14" color="#fff" :stroke-width="2" />
             </div>
             <div>
               <div class="ai-warn-title">Dấu hiệu nguy hiểm — dừng xe ngay nếu:</div>
@@ -232,12 +295,12 @@
           <!-- Recommendation -->
           <div class="ai-recommendation">
             <div class="ai-icon-box slate" style="flex-shrink:0">
-              <van-icon name="shield-o" size="14" color="#fff" />
+              <ShieldCheck :size="14" color="#fff" :stroke-width="2" />
             </div>
             <div class="ai-rec-text">{{ aiResult.recommended_action }}</div>
           </div>
 
-          <!-- Gemini Badge -->
+          <!-- Badge -->
           <div class="ai-powered-row">
             <span class="ai-powered-badge" :class="aiResult.ai_powered ? '' : 'badge-warn'">
               {{ aiResult.ai_powered ? '✨ Kết quả AI Gemini' : '⚠ Kết quả dự phòng' }}
@@ -249,7 +312,6 @@
             <button class="ai-btn-secondary" @click="resetAI">↺ Phân tích lại</button>
             <button class="ai-btn-danger" @click="callSOSFromAI">Gọi Cứu Hộ Ngay</button>
           </div>
-
 
         </div>
       </div>
@@ -263,6 +325,11 @@ import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { showToast, showSuccessToast } from 'vant';
 import L from 'leaflet';
+import {
+  Stethoscope, Camera, Mic, CirclePlay, CircleStop,
+  FileText, HelpCircle, ClipboardList, Wrench, BadgeDollarSign,
+  Lightbulb, TriangleAlert, ShieldCheck, Upload, XCircle
+} from 'lucide-vue-next';
 
 // State
 const router = useRouter();
@@ -280,10 +347,26 @@ const showMechanics = ref(false);
 const loading = ref(false);
 let mechanicMarkers = null; // LayerGroup for easy clearing
 
+// Vehicle Selection
+const showVehicleSheet = ref(false);
+const selectedVehicle = ref('BIKE');
+
 const showAIModal = ref(false);
 const fileList = ref([]);
 const aiResult = ref(null);
 const aiLoading = ref(false);
+
+// Audio Analysis State
+const aiTab = ref('image'); // 'image' | 'sound'
+const isRecording = ref(false);
+const recordingDuration = ref(0);
+let mediaRecorder = null;
+let audioChunks = [];
+let recordingTimer = null;
+const audioFileList = ref([]);
+const pendingAudioBlob = ref(null);
+const pendingAudioName = ref('');
+const audioPreviewUrl = ref(null);
 
 import { computed } from 'vue';
 
@@ -305,14 +388,28 @@ const severityIcon = computed(() => {
 const canDriveType = computed(() => aiResult.value?.can_drive ? 'success' : 'danger');
 
 const openAIModal = () => {
-    aiResult.value = null;
-    fileList.value = [];
+    resetAI();
     showAIModal.value = true;
 };
 
 const resetAI = () => {
     aiResult.value = null;
     fileList.value = [];
+    audioFileList.value = [];
+    isRecording.value = false;
+    recordingDuration.value = 0;
+    
+    if (audioPreviewUrl.value) {
+        URL.revokeObjectURL(audioPreviewUrl.value);
+        audioPreviewUrl.value = null;
+    }
+    pendingAudioBlob.value = null;
+    pendingAudioName.value = '';
+
+    if (recordingTimer) clearInterval(recordingTimer);
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+    }
 };
 
 const callSOSFromAI = () => {
@@ -394,6 +491,11 @@ function updateUserLocation(lat, lon) {
 }
 
 // SOS Function
+const confirmSOS = () => {
+  showVehicleSheet.value = false;
+  handleSOS();
+};
+
 async function handleSOS() {
   if (!userLat.value) {
     showToast('Vui lòng chọn vị trí của bạn trên bản đồ');
@@ -404,7 +506,8 @@ async function handleSOS() {
   try {
     const response = await axios.post('/api/bookings/sos/', {
       latitude: userLat.value,
-      longitude: userLon.value
+      longitude: userLon.value,
+      vehicle_type: selectedVehicle.value
     });
     mechanics.value = response.data;
     showMechanics.value = true;
@@ -434,7 +537,8 @@ async function bookMechanic(mech) {
             mechanic: mech.id,
             customer_lat: userLat.value,
             customer_lon: userLon.value,
-            problem_description: 'SOS Request via App'
+            problem_description: 'SOS Request via App',
+            vehicle_type: selectedVehicle.value
         });
         showSuccessToast(`Đã gửi yêu cầu đến ${mech.username}!`);
         showMechanics.value = false;
@@ -473,6 +577,116 @@ async function analyzeImage(file) {
         aiLoading.value = false;
     }
 }
+
+// Audio Recording Logic
+const startRecording = async () => {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+        audioChunks = [];
+
+        mediaRecorder.addEventListener('dataavailable', event => {
+            if (event.data.size > 0) audioChunks.push(event.data);
+        });
+
+        mediaRecorder.addEventListener('stop', async () => {
+            stream.getTracks().forEach(track => track.stop()); // release mic
+            if (recordingDuration.value < 1) return; // Ignore accidental clicks
+            
+            clearInterval(recordingTimer);
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            
+            // Set for preview instead of analyzing immediately
+            pendingAudioBlob.value = audioBlob;
+            pendingAudioName.value = 'recording.webm';
+            audioPreviewUrl.value = URL.createObjectURL(audioBlob);
+        });
+
+        mediaRecorder.start();
+        isRecording.value = true;
+        recordingDuration.value = 0;
+        
+        recordingTimer = setInterval(() => {
+            recordingDuration.value += 1;
+            if (recordingDuration.value >= 30) {
+                stopRecording(); // max 30 seconds
+            }
+        }, 1000);
+
+    } catch (e) {
+        console.error(e);
+        showToast('Không thể truy cập Microphone. Vui lòng cấp quyền.');
+    }
+};
+
+const stopRecording = () => {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+        isRecording.value = false;
+        clearInterval(recordingTimer);
+    }
+};
+
+async function analyzeAudio(audioBlob, filename = 'recording.webm') {
+    const formData = new FormData();
+    formData.append('audio', audioBlob, filename);
+    
+    aiLoading.value = true;
+    aiResult.value = null;
+    try {
+        const res = await axios.post('/api/ai/analyze-sound/', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        aiResult.value = res.data;
+    } catch (e) {
+        showToast('Lỗi gửi âm thanh lên AI server');
+        aiResult.value = {
+            diagnosis: 'Không thể phân tích âm thanh',
+            severity: 'Trung bình',
+            details: 'Lỗi upload âm thanh lên máy chủ AI. Vui lòng thử lại.',
+            estimated_price: 'Chưa xác định',
+            recommended_action: 'Mô tả âm thanh trực tiếp với thợ',
+            can_drive: true,
+            urgency_level: 2,
+            ai_powered: false
+        };
+} finally {
+        aiLoading.value = false;
+        recordingDuration.value = 0;
+        audioFileList.value = [];
+        pendingAudioBlob.value = null;
+        pendingAudioName.value = '';
+        if (audioPreviewUrl.value) {
+            URL.revokeObjectURL(audioPreviewUrl.value);
+            audioPreviewUrl.value = null;
+        }
+    }
+}
+
+const confirmAnalyzeAudio = async () => {
+    if (pendingAudioBlob.value) {
+        await analyzeAudio(pendingAudioBlob.value, pendingAudioName.value);
+    }
+};
+
+const cancelAudioPreview = () => {
+    audioFileList.value = [];
+    pendingAudioBlob.value = null;
+    pendingAudioName.value = '';
+    if (audioPreviewUrl.value) {
+        URL.revokeObjectURL(audioPreviewUrl.value);
+        audioPreviewUrl.value = null;
+    }
+    recordingDuration.value = 0;
+};
+
+const uploadAudioFile = async (fileInfo) => {
+    if (!fileInfo || !fileInfo.file) return;
+    pendingAudioBlob.value = fileInfo.file;
+    pendingAudioName.value = fileInfo.file.name;
+    audioPreviewUrl.value = URL.createObjectURL(fileInfo.file);
+};
+
 </script>
 
 <style scoped>
@@ -553,7 +767,18 @@ async function analyzeImage(file) {
 .mt-4 { margin-top: 16px; }
 .ml-2 { margin-left: 8px; }
 
-
+/* Vehicle Selection */
+.vehicle-selection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.vehicle-radio {
+  justify-content: center;
+  gap: 30px;
+  width: 100%;
+}
+.van-radio__label { font-size: 16px; font-weight: 500; }
 /* ===== AI MODAL – Clean Design ===== */
 .ai-wrap {
   padding-bottom: 28px;
@@ -577,13 +802,74 @@ async function analyzeImage(file) {
 
 /* Upload state */
 .ai-upload-state {
-  padding: 32px 24px;
   background: #fff;
+}
+.ai-tab-content {
+  padding: 32px 24px;
   text-align: center;
 }
-.ai-upload-icon { font-size: 48px; margin-bottom: 12px; }
+.ai-upload-icon { font-size: 48px; margin-bottom: 12px; transition: color 0.3s; }
 .ai-upload-title { font-size: 16px; font-weight: 600; color: #222; margin: 0 0 6px; }
 .ai-upload-desc { font-size: 13px; color: #888; margin: 0 0 20px; line-height: 1.5; }
+
+/* Audio Controls */
+.audio-controls { margin-top: 24px; }
+.btn-record-start, .btn-record-stop {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: 30px;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-record-start {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+.btn-record-start:active { background: #dbeafe; }
+.btn-upload-audio {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 30px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px dashed #cbd5e1;
+  background: #f8fafc;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-upload-audio:active { background: #f1f5f9; }
+
+.btn-record-stop {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  animation: pulse-border 1.5s infinite;
+}
+.btn-record-stop:active { background: #fee2e2; }
+
+@keyframes pulse-border {
+  0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+}
+
+.pulse-record {
+  animation: mic-pulse 1.5s infinite;
+}
+@keyframes mic-pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
+}
 
 /* Analyzing spinner */
 .ai-analyzing { padding: 20px; text-align: center; }

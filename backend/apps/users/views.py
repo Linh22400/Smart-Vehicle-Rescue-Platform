@@ -60,6 +60,31 @@ class MechanicStatusView(APIView):
         profile.save()
         return Response(MechanicProfileSerializer(profile).data)
 
+class MechanicUpdateLocationView(APIView):
+    """
+    Lightweight endpoint for mechanics to ping their current GPS location.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        if not user.is_mechanic:
+            return Response({"error": "Not a mechanic"}, status=400)
+        
+        profile = user.mechanic_profile
+        data = request.data
+        
+        lat = data.get('latitude')
+        lon = data.get('longitude')
+
+        if lat is not None and lon is not None:
+            profile.latitude = float(lat)
+            profile.longitude = float(lon)
+            profile.save(update_fields=['latitude', 'longitude'])
+            return Response({"status": "Location updated"})
+        
+        return Response({"error": "Missing coordinates"}, status=400)
+
 class UserProfileView(APIView):
     """Get and update current user's profile."""
     permission_classes = [permissions.IsAuthenticated]

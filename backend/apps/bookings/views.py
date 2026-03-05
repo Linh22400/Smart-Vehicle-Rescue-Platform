@@ -17,6 +17,7 @@ class SOSFindMechanicsView(APIView):
         try:
             cust_lat = float(request.data.get('latitude'))
             cust_lon = float(request.data.get('longitude'))
+            vehicle_type = request.data.get('vehicle_type', 'BIKE') # Default to BIKE if not provided
         except (TypeError, ValueError):
             return Response({"error": "Invalid coordinates"}, status=400)
 
@@ -29,7 +30,8 @@ class SOSFindMechanicsView(APIView):
             c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
             return R * c
 
-        mechanics = MechanicProfile.objects.filter(is_available=True)
+        # Filter mechanics who are available AND service the requested vehicle type (or 'ALL')
+        mechanics = MechanicProfile.objects.filter(is_available=True, vehicle_type__in=[vehicle_type, 'ALL'])
         results = []
         
         for mech in mechanics:
@@ -55,7 +57,8 @@ class CreateBookingView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated] # Keep strict for creating bookings, simpler to debug if login works
 
     def perform_create(self, serializer):
-        serializer.save(customer=self.request.user)
+        vehicle_type = self.request.data.get('vehicle_type', 'BIKE')
+        serializer.save(customer=self.request.user, vehicle_type=vehicle_type)
 
 class BookingHistoryView(generics.ListAPIView):
     """
@@ -105,10 +108,48 @@ class UpdateBookingStatusView(APIView):
         else:
              return Response({"error": "Not authorized to update this booking"}, status=403)
 
-        if new_status in ['ACCEPTED', 'COMPLETED', 'CANCELLED']:
+        if new_status in ['ACCEPTED', 'ON_THE_WAY', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']:
             booking.status = new_status
             booking.save()
             return Response(BookingSerializer(booking).data)
         
         return Response({"error": "Invalid status"}, status=400)
 
+
+class BookingTrackingView(APIView):
+    """
+    GET endpoint for customers to poll the real-time location of their mechanic.
+    Returns mechanic & customer coordinates + current booking status.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        try:
+            booking = Booking.objects.get(pk=pk)
+        except Booking.DoesNotExist:
+            return Response({"error": "Booking not found"}, status=404)
+
+        # Only booking owner or assigned mechanic can track
+        if booking.customer != request.user and booking.mechanic != request.user:
+            return Response({"error": "Not authorized"}, status=403)
+
+        mechanic_data = {"latitude": None, "longitude": None, "username": None}
+        if booking.mechanic:
+            try:
+                profile = booking.mechanic.mechanic_profile
+                mechanic_data = {
+                    "latitude": profile.latitude,
+                    "longitude": profile.longitude,
+                    "username": booking.mechanic.username,
+                }
+            except Exception:
+                pass
+
+        return Response({
+            "status": booking.status,
+            "mechanic": mechanic_data,
+            "customer": {
+                "latitude": booking.customer_lat,
+                "longitude": booking.customer_lon,
+            },
+        })

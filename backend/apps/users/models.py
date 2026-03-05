@@ -15,12 +15,19 @@ class MechanicProfile(models.Model):
     """
     Profile for mechanics with location and availability content.
     """
+    VEHICLE_CHOICES = (
+        ('BIKE', 'Xe máy'),
+        ('CAR', 'Ô tô'),
+        ('ALL', 'Cả hai'),
+    )
+
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='mechanic_profile')
     latitude = models.FloatField(blank=True, null=True)
     longitude = models.FloatField(blank=True, null=True)
     is_available = models.BooleanField(default=True)
     rating = models.FloatField(default=5.0)
     specialty = models.CharField(max_length=100, default="General Repair")
+    vehicle_type = models.CharField(max_length=10, choices=VEHICLE_CHOICES, default='ALL')
 
     def __str__(self):
         return f"Mechanic: {self.user.username}"

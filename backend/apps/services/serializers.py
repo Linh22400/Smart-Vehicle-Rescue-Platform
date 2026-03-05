@@ -30,5 +30,5 @@ class AppointmentSerializer(serializers.ModelSerializer):
 class ReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = Review
-        fields = ['id', 'mechanic', 'appointment', 'rating', 'comment', 'created_at']
-        read_only_fields = ['created_at']
+        fields = ['id', 'customer', 'mechanic', 'appointment', 'sos_booking', 'rating', 'comment', 'created_at']
+        read_only_fields = ['customer', 'created_at']

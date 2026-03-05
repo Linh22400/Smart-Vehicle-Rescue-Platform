@@ -9,7 +9,7 @@ class BookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
         fields = ['id', 'customer', 'mechanic', 'mechanic_name', 'has_sos_review',
-                  'status', 'created_at', 'customer_lat', 'customer_lon', 'problem_description']
+                  'status', 'vehicle_type', 'created_at', 'customer_lat', 'customer_lon', 'problem_description']
         read_only_fields = ('customer', 'status', 'created_at')
 
     def get_has_sos_review(self, obj):
@@ -25,3 +25,4 @@ class MechanicDistanceSerializer(serializers.Serializer):
     distance_km = serializers.FloatField()
     rating = serializers.FloatField()
     specialty = serializers.CharField()
+    vehicle_type = serializers.CharField()

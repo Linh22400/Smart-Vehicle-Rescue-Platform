@@ -32,6 +32,12 @@ class AIReport(models.Model):
     urgency_level      = models.IntegerField(default=1)
     ai_powered         = models.BooleanField(default=True)
 
+    # ── Source ──
+    SOURCE_IMAGE = 'image'
+    SOURCE_SOUND = 'sound'
+    SOURCE_CHOICES = [(SOURCE_IMAGE, 'Ảnh'), (SOURCE_SOUND, 'Âm thanh')]
+    source = models.CharField(max_length=10, choices=SOURCE_CHOICES, default=SOURCE_IMAGE)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

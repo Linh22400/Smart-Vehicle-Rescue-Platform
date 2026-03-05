@@ -5,13 +5,21 @@ class Booking(models.Model):
     STATUS_CHOICES = (
         ('PENDING', 'Pending'),
         ('ACCEPTED', 'Accepted'),
+        ('ON_THE_WAY', 'On the way'),
+        ('IN_PROGRESS', 'In progress'),
         ('COMPLETED', 'Completed'),
         ('CANCELLED', 'Cancelled'),
+    )
+
+    VEHICLE_CHOICES = (
+        ('BIKE', 'Xe máy'),
+        ('CAR', 'Ô tô'),
     )
 
     customer = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='bookings_as_customer', on_delete=models.CASCADE)
     mechanic = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='bookings_as_mechanic', on_delete=models.SET_NULL, null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    vehicle_type = models.CharField(max_length=10, choices=VEHICLE_CHOICES, default='BIKE')
     created_at = models.DateTimeField(auto_now_add=True)
     
     # Location where the customer requested help

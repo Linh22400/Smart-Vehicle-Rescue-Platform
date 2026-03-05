@@ -39,6 +39,8 @@
             </div>
             <div class="hst-footer">
               <van-button v-if="item.status==='PENDING'" size="mini" type="danger" plain round @click="cancelBooking(item.id,'SOS')">Hủy</van-button>
+              <van-button v-if="['ACCEPTED','ON_THE_WAY'].includes(item.status)" 
+                size="mini" type="primary" round @click="openTracking(item)">📍 Theo dõi Thợ</van-button>
               <van-button v-if="item.status==='COMPLETED' && item.mechanic && !item.has_sos_review"
                 size="mini" type="primary" plain round @click="openSOSRating(item)">★ Đánh giá</van-button>
               <span v-if="item.status==='COMPLETED' && item.has_sos_review" class="rated-badge">✓ Đã đánh giá</span>
@@ -102,7 +104,11 @@
             <div class="aih-header">
               <div class="aih-strip" :class="'aih-' + getSeverityKey(r.severity)"></div>
               <div class="aih-meta">
-                <span class="aih-diagnosis">{{ r.diagnosis }}</span>
+                <span class="aih-diagnosis">
+                  <Mic v-if="r.source === 'sound'" :size="15" color="#5c6bc0" style="margin-right:4px; vertical-align:-2px" />
+                  <Camera v-else :size="15" color="#5c6bc0" style="margin-right:4px; vertical-align:-2px" />
+                  {{ r.diagnosis }}
+                </span>
                 <span class="aih-date">{{ formatDate(r.created_at) }}</span>
               </div>
               <van-tag :type="r.can_drive ? 'success' : 'danger'" size="mini" class="aih-drive">
@@ -138,12 +144,39 @@
         </div>
     </van-dialog>
 
+    <!-- TRACKING POPUP (Grab-style) -->
+    <van-popup v-model:show="showTracking" position="bottom" :style="{ height: '85%' }" round @opened="initTrackingMap" @closed="stopTrackingPolling">
+      <div class="tracking-header">
+        <div class="tracking-title">
+          <span class="tracking-dot" :class="trackingStatus"></span>
+          <span>{{ trackingStatusText }}</span>
+        </div>
+        <van-icon name="cross" size="20" color="#666" @click="showTracking = false" />
+      </div>
+      <div id="tracking-map" class="tracking-map"></div>
+      <div class="tracking-info">
+        <div class="tracking-mechanic">
+          <van-icon name="manager-o" size="18" color="#2563eb" />
+          <span>{{ trackingMechanicName }}</span>
+        </div>
+        <div class="tracking-badge">
+          <van-tag :type="trackingStatus === 'on_the_way' ? 'primary' : trackingStatus === 'in_progress' ? 'success' : 'warning'" size="medium">
+            {{ trackingStatusText }}
+          </van-tag>
+        </div>
+      </div>
+    </van-popup>
+
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
+import { Camera, Mic } from 'lucide-vue-next';
+import L from 'leaflet';
+import 'leaflet-routing-machine';
+import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
 
 const activeTab = ref(0);
 const sosBookings = ref([]);
@@ -225,7 +258,9 @@ const getStatusColor = (status) => {
     switch(status) {
         case 'COMPLETED': return 'success';
         case 'ACCEPTED': 
-        case 'CONFIRMED': return 'primary';
+        case 'CONFIRMED': 
+        case 'ON_THE_WAY':
+        case 'IN_PROGRESS': return 'primary';
         case 'PENDING': return 'warning';
         case 'CANCELLED': return 'danger';
         default: return 'default';
@@ -234,8 +269,10 @@ const getStatusColor = (status) => {
 
 const translateStatus = (status) => {
     switch(status) {
-        case 'PENDING': return 'Chờ xác nhận';
-        case 'ACCEPTED': return 'Đang thực hiện';
+        case 'PENDING': return 'Chờ nhận';
+        case 'ACCEPTED': return 'Đã nhận';
+        case 'ON_THE_WAY': return 'Đang đến';
+        case 'IN_PROGRESS': return 'Đang sửa';
         case 'CONFIRMED': return 'Đã xác nhận';
         case 'COMPLETED': return 'Hoàn thành';
         case 'CANCELLED': return 'Đã hủy';
@@ -331,6 +368,175 @@ const cancelBooking = (id, type) => {
         // on cancel
     });
 }
+
+// ── REAL-TIME TRACKING LOGIC ──
+const showTracking = ref(false);
+const trackingBookingId = ref(null);
+const trackingStatus = ref('pending');
+const trackingStatusText = ref('Đang chờ...');
+const trackingMechanicName = ref('');
+let trackingMap = null;
+let trackingMechMarker = null;
+let trackingCustMarker = null;
+let trackingRoute = null;       // Routing control (created once)
+let trackingPolyline = null;    // Lightweight polyline for smooth updates
+let trackingInterval = null;
+let isFirstTrackingLoad = true; // Only fitBounds on first load
+
+const statusTextMap = {
+    'PENDING': 'Chờ nhận đơn',
+    'ACCEPTED': 'Thợ đã nhận đơn',
+    'ON_THE_WAY': 'Thợ đang trên đường đến',
+    'IN_PROGRESS': 'Thợ đang sửa xe',
+    'COMPLETED': 'Hoàn thành',
+};
+
+const openTracking = (item) => {
+    trackingBookingId.value = item.id;
+    trackingMechanicName.value = item.mechanic_name || 'Thợ #' + item.mechanic;
+    trackingStatus.value = item.status.toLowerCase();
+    trackingStatusText.value = statusTextMap[item.status] || item.status;
+    isFirstTrackingLoad = true;
+    showTracking.value = true;
+};
+
+// Icon definitions (reusable, avoid re-creating every cycle)
+const custIcon = L.icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+    iconSize: [25, 41], iconAnchor: [12, 41]
+});
+const mechIcon = L.icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+    iconSize: [25, 41], iconAnchor: [12, 41]
+});
+
+const initTrackingMap = async () => {
+    await new Promise(r => setTimeout(r, 300));
+
+    if (!trackingMap) {
+        trackingMap = L.map('tracking-map').setView([21.0285, 105.8542], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(trackingMap);
+    }
+
+    trackingMap.invalidateSize();
+    await fetchTrackingData();
+    startTrackingPolling();
+};
+
+const fetchTrackingData = async () => {
+    if (!trackingBookingId.value) return;
+    try {
+        const res = await axios.get(`/api/bookings/${trackingBookingId.value}/tracking/`);
+        const data = res.data;
+
+        trackingStatus.value = data.status.toLowerCase();
+        trackingStatusText.value = statusTextMap[data.status] || data.status;
+
+        const mechLat = data.mechanic.latitude;
+        const mechLon = data.mechanic.longitude;
+        const custLat = data.customer.latitude;
+        const custLon = data.customer.longitude;
+
+        if (data.mechanic.username) {
+            trackingMechanicName.value = data.mechanic.username;
+        }
+
+        // ── Customer marker (create once) ──
+        if (custLat && custLon && !trackingCustMarker) {
+            trackingCustMarker = L.marker([custLat, custLon], { icon: custIcon })
+                .addTo(trackingMap)
+                .bindPopup('📍 Vị trí của bạn');
+        }
+
+        // ── Mechanic marker (create once, then smoothly move) ──
+        if (mechLat && mechLon) {
+            if (!trackingMechMarker) {
+                trackingMechMarker = L.marker([mechLat, mechLon], { icon: mechIcon })
+                    .addTo(trackingMap)
+                    .bindPopup('🔧 ' + trackingMechanicName.value);
+            } else {
+                trackingMechMarker.setLatLng([mechLat, mechLon]);
+            }
+
+            // ── Route: create Routing control ONCE on first load, then update polyline ──
+            if (custLat && custLon) {
+                if (isFirstTrackingLoad) {
+                    // First load: create full Routing control + fitBounds
+                    if (trackingRoute) {
+                        trackingMap.removeControl(trackingRoute);
+                        trackingRoute = null;
+                    }
+                    trackingRoute = L.Routing.control({
+                        waypoints: [
+                            L.latLng(mechLat, mechLon),
+                            L.latLng(custLat, custLon)
+                        ],
+                        routeWhileDragging: false,
+                        addWaypoints: false,
+                        createMarker: () => null,
+                        lineOptions: {
+                            styles: [{ color: '#2563eb', opacity: 0.8, weight: 5 }]
+                        },
+                        show: false
+                    }).addTo(trackingMap);
+
+                    // Fit bounds only on first load
+                    const group = new L.featureGroup([
+                        L.marker([mechLat, mechLon]),
+                        L.marker([custLat, custLon])
+                    ]);
+                    trackingMap.fitBounds(group.getBounds(), { padding: [50, 50] });
+                    isFirstTrackingLoad = false;
+                } else {
+                    // Subsequent polls: just update waypoints silently (no rebuild, no zoom reset)
+                    if (trackingRoute) {
+                        trackingRoute.setWaypoints([
+                            L.latLng(mechLat, mechLon),
+                            L.latLng(custLat, custLon)
+                        ]);
+                    }
+                }
+            }
+        }
+
+        // If booking completed, stop polling and refresh history
+        if (data.status === 'COMPLETED' || data.status === 'CANCELLED') {
+            stopTrackingPolling();
+            const refreshRes = await axios.get('/api/bookings/history/');
+            sosBookings.value = refreshRes.data;
+        }
+
+    } catch (e) {
+        console.error('Tracking fetch error:', e);
+    }
+};
+
+const startTrackingPolling = () => {
+    if (trackingInterval) return;
+    trackingInterval = setInterval(fetchTrackingData, 5000);
+};
+
+const stopTrackingPolling = () => {
+    if (trackingInterval) {
+        clearInterval(trackingInterval);
+        trackingInterval = null;
+    }
+    // Clean up map layers for next opening
+    if (trackingMechMarker) { trackingMap?.removeLayer(trackingMechMarker); trackingMechMarker = null; }
+    if (trackingCustMarker) { trackingMap?.removeLayer(trackingCustMarker); trackingCustMarker = null; }
+    if (trackingRoute) { trackingMap?.removeControl(trackingRoute); trackingRoute = null; }
+    if (trackingPolyline) { trackingMap?.removeLayer(trackingPolyline); trackingPolyline = null; }
+    isFirstTrackingLoad = true;
+};
+
+onUnmounted(() => {
+    stopTrackingPolling();
+});
 </script>
 
 <style scoped>
@@ -509,5 +715,65 @@ const cancelBooking = (id, type) => {
     border-top: 1px solid #f0f0f0;
 }
 .aih-price { font-size: 13px; font-weight: 600; color: #2d6cdf; }
+
+/* ── Tracking Popup (Grab-style) ── */
+.tracking-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px 10px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.tracking-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+.tracking-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  animation: pulse-dot 1.5s infinite;
+}
+.tracking-dot.on_the_way { background: #2563eb; }
+.tracking-dot.in_progress { background: #07c160; }
+.tracking-dot.accepted { background: #ff976a; }
+.tracking-dot.pending { background: #ccc; }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.4); }
+}
+
+.tracking-map {
+  width: 100%;
+  height: calc(100% - 120px);
+  z-index: 1;
+}
+
+.tracking-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  border-top: 1px solid #f0f0f0;
+  background: #fff;
+}
+.tracking-mechanic {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a2e;
+}
+.tracking-badge { }
+
+/* Status chip colors for new statuses */
+.chip-on_the_way { background: #dbeafe; color: #2563eb; }
+.chip-in_progress { background: #d4fae4; color: #07c160; }
 
 </style>

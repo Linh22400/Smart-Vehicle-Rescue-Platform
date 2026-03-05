@@ -4,7 +4,7 @@ from .models import CustomUser, MechanicProfile
 class MechanicProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = MechanicProfile
-        fields = ['id', 'latitude', 'longitude', 'is_available', 'rating', 'specialty']
+        fields = ['id', 'latitude', 'longitude', 'is_available', 'rating', 'specialty', 'vehicle_type']
 
 class UserSerializer(serializers.ModelSerializer):
     mechanic_profile = MechanicProfileSerializer(read_only=True)

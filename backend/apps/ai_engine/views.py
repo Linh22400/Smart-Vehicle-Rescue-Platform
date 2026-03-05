@@ -294,9 +294,11 @@ class AIReportListView(APIView):
             'can_drive': r.can_drive,
             'urgency_level': r.urgency_level,
             'ai_powered': r.ai_powered,
+            'source': r.source,
             'created_at': r.created_at.isoformat(),
         } for r in reports]
         return Response(data)
+
 
 
 class AIReportDeleteView(APIView):

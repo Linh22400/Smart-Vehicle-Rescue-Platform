@@ -28,7 +28,7 @@
     <div v-if="activeTab === 'SOS'" class="p-2">
          <van-tabs v-model:active="sosSubTab">
             <van-tab title="Mới" name="PENDING"></van-tab>
-            <van-tab title="Đang làm" name="ACCEPTED"></van-tab>
+            <van-tab title="Đang làm" name="ACTIVE"></van-tab>
          </van-tabs>
 
          <div v-if="loadingSOS" class="text-center p-4">Đang tải SOS...</div>
@@ -47,7 +47,14 @@
                 <van-button v-if="item.status === 'PENDING'" size="small" type="primary" @click="updateSOSStatus(item.id, 'ACCEPTED')">Nhận Đơn</van-button>
                 <div v-if="item.status === 'ACCEPTED'">
                     <van-button size="small" type="warning" plain @click="viewRoute(item)">Chỉ Đường</van-button>
-                    <van-button size="small" type="success" @click="updateSOSStatus(item.id, 'COMPLETED')">Hoàn Thành</van-button>
+                    <van-button size="small" type="primary" @click="updateSOSStatus(item.id, 'ON_THE_WAY')">Bắt Đầu Đi</van-button>
+                </div>
+                <div v-if="item.status === 'ON_THE_WAY'">
+                    <van-button size="small" type="warning" plain @click="viewRoute(item)">Chỉ Đường</van-button>
+                    <van-button size="small" type="primary" @click="updateSOSStatus(item.id, 'IN_PROGRESS')">Đã Tới/Đang Sửa</van-button>
+                </div>
+                <div v-if="item.status === 'IN_PROGRESS'">
+                    <van-button size="small" type="success" @click="updateSOSStatus(item.id, 'COMPLETED')">Hoàn Thành Đoạn Đường</van-button>
                 </div>
             </template>
         </van-card>
@@ -137,7 +144,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, nextTick } from 'vue';
+import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue';
 import axios from 'axios';
 import { showToast } from 'vant';
 import L from 'leaflet';
@@ -237,18 +244,81 @@ const refreshData = () => {
 onMounted(refreshData);
 
 const filteredSOS = computed(() => {
+    if (sosSubTab.value === 'ACTIVE') {
+        return sosBookings.value.filter(b => ['ACCEPTED', 'ON_THE_WAY', 'IN_PROGRESS'].includes(b.status));
+    }
     return sosBookings.value.filter(b => b.status === sosSubTab.value);
 });
 
-const updateSOSStatus = async (id, status) => {
+const updateSOSStatus = async (id, newStatus) => {
     try {
-        await axios.post(`/api/bookings/${id}/update-status/`, { status });
+        await axios.post(`/api/bookings/${id}/update-status/`, { status: newStatus });
         showToast('Cập nhật SOS thành công!');
+        // Start GPS sender when mechanic is ON_THE_WAY or IN_PROGRESS
+        if (newStatus === 'ON_THE_WAY' || newStatus === 'IN_PROGRESS') {
+            startGPSSender();
+        }
+        // Stop GPS sender when booking is completed or cancelled
+        if (newStatus === 'COMPLETED' || newStatus === 'CANCELLED') {
+            stopGPSSender();
+        }
         fetchSOS();
     } catch (e) {
         showToast('Lỗi cập nhật SOS');
     }
 }
+
+// ── GPS Real-time Location Sender ──
+let gpsWatchId = null;
+let gpsSendInterval = null;
+const currentGPS = ref({ lat: null, lon: null });
+
+const startGPSSender = () => {
+    if (gpsSendInterval) return; // already running
+
+    // Watch position using HTML5 Geolocation
+    if (navigator.geolocation) {
+        gpsWatchId = navigator.geolocation.watchPosition(
+            (pos) => {
+                currentGPS.value.lat = pos.coords.latitude;
+                currentGPS.value.lon = pos.coords.longitude;
+            },
+            (err) => {
+                console.warn('GPS error:', err.message);
+            },
+            { enableHighAccuracy: true, maximumAge: 5000 }
+        );
+    }
+
+    // Send location to server every 10 seconds
+    gpsSendInterval = setInterval(async () => {
+        if (currentGPS.value.lat && currentGPS.value.lon) {
+            try {
+                await axios.post('/api/users/mechanic/update-location/', {
+                    latitude: currentGPS.value.lat,
+                    longitude: currentGPS.value.lon
+                });
+            } catch (e) {
+                // Silent fail - don't interrupt mechanic
+            }
+        }
+    }, 10000);
+};
+
+const stopGPSSender = () => {
+    if (gpsWatchId !== null) {
+        navigator.geolocation.clearWatch(gpsWatchId);
+        gpsWatchId = null;
+    }
+    if (gpsSendInterval) {
+        clearInterval(gpsSendInterval);
+        gpsSendInterval = null;
+    }
+};
+
+onUnmounted(() => {
+    stopGPSSender();
+});
 
 const updateApptStatus = async (id, status) => {
     try {
@@ -366,7 +436,15 @@ const formatPrice = (p) => {
 }
 
 const translateStatus = (s) => {
-    const map = { 'PENDING': 'Chờ', 'ACCEPTED': 'Đang làm', 'CONFIRMED': 'Đã có lịch', 'COMPLETED': 'Xong', 'CANCELLED': 'Đã hủy' };
+    const map = { 
+        'PENDING': 'Chờ nhận', 
+        'ACCEPTED': 'Đã nhận', 
+        'ON_THE_WAY': 'Đang đến',
+        'IN_PROGRESS': 'Đang sửa',
+        'CONFIRMED': 'Đã có lịch', 
+        'COMPLETED': 'Xong', 
+        'CANCELLED': 'Đã hủy' 
+    };
     return map[s] || s;
 }
 </script>
