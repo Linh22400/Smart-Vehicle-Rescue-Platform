@@ -54,7 +54,7 @@
                     <van-button size="small" type="primary" @click="updateSOSStatus(item.id, 'IN_PROGRESS')">Đã Tới/Đang Sửa</van-button>
                 </div>
                 <div v-if="item.status === 'IN_PROGRESS'">
-                    <van-button size="small" type="success" @click="updateSOSStatus(item.id, 'COMPLETED')">Hoàn Thành Đoạn Đường</van-button>
+                    <van-button size="small" type="success" @click="openCostDialog(item)">Hoàn Thành & Tính Tiền</van-button>
                 </div>
             </template>
         </van-card>
@@ -139,6 +139,18 @@
         </div>
         <div id="mechanic-map" style="width: 100%; height: calc(100% - 40px);"></div>
     </van-popup>
+
+    <!-- REPAIR COST DIALOG -->
+    <van-dialog v-model:show="showCostDialog" title="Nhập Chi Phí Sửa Chữa" show-cancel-button 
+      confirm-button-text="Hoàn Thành" cancel-button-text="Hủy" @confirm="submitCompletion">
+      <div style="padding: 20px;">
+        <van-field v-model="repairCostInput" type="digit" label="Số tiền (VNĐ)" 
+          placeholder="VD: 250000" input-align="right" />
+        <p style="font-size: 12px; color: #999; margin-top: 10px; text-align: center;">
+          Khách hàng sẽ nhìn thấy số tiền này và chọn hình thức thanh toán.
+        </p>
+      </div>
+    </van-dialog>
 
   </div>
 </template>
@@ -268,6 +280,34 @@ const updateSOSStatus = async (id, newStatus) => {
     }
 }
 
+// ── Repair Cost Dialog ──
+const showCostDialog = ref(false);
+const repairCostInput = ref('');
+const completingBookingId = ref(null);
+
+const openCostDialog = (item) => {
+    completingBookingId.value = item.id;
+    repairCostInput.value = '';
+    showCostDialog.value = true;
+};
+
+const submitCompletion = async () => {
+    if (!repairCostInput.value || parseInt(repairCostInput.value) <= 0) {
+        showToast('Vui lòng nhập số tiền hợp lệ');
+        return;
+    }
+    try {
+        await axios.post(`/api/bookings/${completingBookingId.value}/update-status/`, {
+            status: 'COMPLETED',
+            repair_cost: parseInt(repairCostInput.value)
+        });
+        showToast('Hoàn thành! Khách hàng sẽ nhận được thông báo thanh toán.');
+        stopGPSSender();
+        fetchSOS();
+    } catch (e) {
+        showToast('Lỗi hoàn thành đơn');
+    }
+};
 // ── GPS Real-time Location Sender ──
 let gpsWatchId = null;
 let gpsSendInterval = null;

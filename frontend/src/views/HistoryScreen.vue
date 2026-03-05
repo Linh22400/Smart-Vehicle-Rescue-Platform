@@ -41,6 +41,11 @@
               <van-button v-if="item.status==='PENDING'" size="mini" type="danger" plain round @click="cancelBooking(item.id,'SOS')">Hủy</van-button>
               <van-button v-if="['ACCEPTED','ON_THE_WAY'].includes(item.status)" 
                 size="mini" type="primary" round @click="openTracking(item)">📍 Theo dõi Thợ</van-button>
+              <van-button v-if="item.status==='IN_PROGRESS'" size="mini" type="warning" plain round disabled>🔧 Đang sửa</van-button>
+              <!-- Payment button -->
+              <van-button v-if="item.status==='COMPLETED' && item.payment_status==='UNPAID'" 
+                size="mini" type="success" round @click="openPayment(item)">💳 Thanh toán {{ formatCost(item.repair_cost) }}</van-button>
+              <span v-if="item.status==='COMPLETED' && item.payment_status==='PAID'" class="paid-badge">✅ Đã thanh toán {{ translatePaymentMethod(item.payment_method) }}</span>
               <van-button v-if="item.status==='COMPLETED' && item.mechanic && !item.has_sos_review"
                 size="mini" type="primary" plain round @click="openSOSRating(item)">★ Đánh giá</van-button>
               <span v-if="item.status==='COMPLETED' && item.has_sos_review" class="rated-badge">✓ Đã đánh giá</span>
@@ -164,6 +169,30 @@
             {{ trackingStatusText }}
           </van-tag>
         </div>
+      </div>
+    </van-popup>
+
+    <!-- PAYMENT POPUP -->
+    <van-popup v-model:show="showPayment" position="bottom" :style="{ height: '45%' }" round>
+      <div class="payment-container">
+        <h3 class="payment-title">💰 Thanh toán Sửa chữa</h3>
+        <div class="payment-amount">
+          {{ formatCost(paymentItem?.repair_cost) }}
+        </div>
+        <p class="payment-subtitle">Chọn hình thức thanh toán:</p>
+        <div class="payment-methods">
+          <div class="payment-method-card" :class="{ active: selectedPaymentMethod === 'CASH' }" @click="selectedPaymentMethod = 'CASH'">
+            <span class="pm-icon">💵</span>
+            <span class="pm-label">Tiền mặt</span>
+          </div>
+          <div class="payment-method-card" :class="{ active: selectedPaymentMethod === 'TRANSFER' }" @click="selectedPaymentMethod = 'TRANSFER'">
+            <span class="pm-icon">🏦</span>
+            <span class="pm-label">Chuyển khoản</span>
+          </div>
+        </div>
+        <van-button type="success" block round size="large" :disabled="!selectedPaymentMethod" @click="confirmPayment">
+          Xác nhận Thanh toán
+        </van-button>
       </div>
     </van-popup>
 
@@ -368,6 +397,48 @@ const cancelBooking = (id, type) => {
         // on cancel
     });
 }
+
+// ── PAYMENT LOGIC ──
+const showPayment = ref(false);
+const paymentItem = ref(null);
+const selectedPaymentMethod = ref('');
+
+const formatCost = (cost) => {
+    if (!cost) return '';
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(cost);
+};
+
+const translatePaymentMethod = (method) => {
+    if (method === 'CASH') return '(Tiền mặt)';
+    if (method === 'TRANSFER') return '(Chuyển khoản)';
+    return '';
+};
+
+const openPayment = (item) => {
+    paymentItem.value = item;
+    selectedPaymentMethod.value = '';
+    showPayment.value = true;
+};
+
+const confirmPayment = async () => {
+    if (!paymentItem.value || !selectedPaymentMethod.value) return;
+    try {
+        await axios.post(`/api/bookings/${paymentItem.value.id}/confirm-payment/`, {
+            payment_method: selectedPaymentMethod.value
+        });
+        showSuccessToast('Thanh toán thành công!');
+        showPayment.value = false;
+        // Refresh SOS list
+        const res = await axios.get('/api/bookings/history/');
+        sosBookings.value = res.data;
+    } catch (e) {
+        if (e.response && e.response.data && e.response.data.error) {
+            showFailToast(e.response.data.error);
+        } else {
+            showFailToast('Lỗi xác nhận thanh toán');
+        }
+    }
+};
 
 // ── REAL-TIME TRACKING LOGIC ──
 const showTracking = ref(false);
@@ -775,5 +846,58 @@ onUnmounted(() => {
 /* Status chip colors for new statuses */
 .chip-on_the_way { background: #dbeafe; color: #2563eb; }
 .chip-in_progress { background: #d4fae4; color: #07c160; }
+
+/* ── Payment Popup ── */
+.payment-container {
+  padding: 24px 20px;
+  text-align: center;
+}
+.payment-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0 0 12px;
+}
+.payment-amount {
+  font-size: 28px;
+  font-weight: 800;
+  color: #e74c3c;
+  margin-bottom: 16px;
+}
+.payment-subtitle {
+  font-size: 14px;
+  color: #888;
+  margin-bottom: 16px;
+}
+.payment-methods {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.payment-method-card {
+  flex: 1;
+  padding: 16px 12px;
+  border: 2px solid #eee;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+.payment-method-card.active {
+  border-color: #07c160;
+  background: #f0fff8;
+  box-shadow: 0 2px 12px rgba(7, 193, 96, 0.15);
+}
+.pm-icon { font-size: 28px; display: block; margin-bottom: 6px; }
+.pm-label { font-size: 14px; font-weight: 600; color: #333; }
+
+.paid-badge {
+  font-size: 11px;
+  color: #07c160;
+  font-weight: 700;
+  background: #f0fff8;
+  padding: 3px 8px;
+  border-radius: 20px;
+}
 
 </style>

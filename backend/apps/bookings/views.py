@@ -109,6 +109,11 @@ class UpdateBookingStatusView(APIView):
              return Response({"error": "Not authorized to update this booking"}, status=403)
 
         if new_status in ['ACCEPTED', 'ON_THE_WAY', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']:
+            # When mechanic completes, save the repair cost
+            if new_status == 'COMPLETED':
+                repair_cost = request.data.get('repair_cost')
+                if repair_cost is not None:
+                    booking.repair_cost = repair_cost
             booking.status = new_status
             booking.save()
             return Response(BookingSerializer(booking).data)
@@ -153,3 +158,36 @@ class BookingTrackingView(APIView):
                 "longitude": booking.customer_lon,
             },
         })
+
+
+class ConfirmPaymentView(APIView):
+    """
+    Customer confirms payment after booking is completed.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            booking = Booking.objects.get(pk=pk)
+        except Booking.DoesNotExist:
+            return Response({"error": "Booking not found"}, status=404)
+
+        # Only the booking owner (customer) can confirm payment
+        if booking.customer != request.user:
+            return Response({"error": "Not authorized"}, status=403)
+
+        if booking.status != 'COMPLETED':
+            return Response({"error": "Booking must be completed before payment"}, status=400)
+
+        if booking.payment_status == 'PAID':
+            return Response({"error": "Đơn này đã được thanh toán rồi"}, status=400)
+
+        payment_method = request.data.get('payment_method')
+        if payment_method not in ['CASH', 'TRANSFER']:
+            return Response({"error": "Invalid payment method. Use CASH or TRANSFER"}, status=400)
+
+        booking.payment_method = payment_method
+        booking.payment_status = 'PAID'
+        booking.save(update_fields=['payment_method', 'payment_status'])
+
+        return Response(BookingSerializer(booking).data)

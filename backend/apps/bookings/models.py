@@ -16,6 +16,16 @@ class Booking(models.Model):
         ('CAR', 'Ô tô'),
     )
 
+    PAYMENT_METHOD_CHOICES = (
+        ('CASH', 'Tiền mặt'),
+        ('TRANSFER', 'Chuyển khoản'),
+    )
+
+    PAYMENT_STATUS_CHOICES = (
+        ('UNPAID', 'Chưa thanh toán'),
+        ('PAID', 'Đã thanh toán'),
+    )
+
     customer = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='bookings_as_customer', on_delete=models.CASCADE)
     mechanic = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='bookings_as_mechanic', on_delete=models.SET_NULL, null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
@@ -27,6 +37,11 @@ class Booking(models.Model):
     customer_lon = models.FloatField()
     
     problem_description = models.TextField(blank=True)
+
+    # Payment fields
+    repair_cost = models.DecimalField(max_digits=12, decimal_places=0, null=True, blank=True, help_text='Chi phí sửa chữa (VNĐ)')
+    payment_method = models.CharField(max_length=10, choices=PAYMENT_METHOD_CHOICES, blank=True, default='')
+    payment_status = models.CharField(max_length=10, choices=PAYMENT_STATUS_CHOICES, default='UNPAID')
 
     def __str__(self):
         return f"Booking {self.id} - {self.status}"

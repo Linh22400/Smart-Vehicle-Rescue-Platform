@@ -9,7 +9,8 @@ class BookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
         fields = ['id', 'customer', 'mechanic', 'mechanic_name', 'has_sos_review',
-                  'status', 'vehicle_type', 'created_at', 'customer_lat', 'customer_lon', 'problem_description']
+                  'status', 'vehicle_type', 'created_at', 'customer_lat', 'customer_lon', 'problem_description',
+                  'repair_cost', 'payment_method', 'payment_status']
         read_only_fields = ('customer', 'status', 'created_at')
 
     def get_has_sos_review(self, obj):
