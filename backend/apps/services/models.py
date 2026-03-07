@@ -20,6 +20,17 @@ class Appointment(models.Model):
         ('CANCELLED', 'Đã hủy'),
     ]
 
+    PAYMENT_METHOD_CHOICES = (
+        ('CASH', 'Tiền mặt'),
+        ('TRANSFER', 'Chuyển khoản'),
+    )
+
+    PAYMENT_STATUS_CHOICES = (
+        ('UNPAID', 'Chưa thanh toán'),
+        ('PENDING', 'Chờ xác nhận'),
+        ('PAID', 'Đã thanh toán'),
+    )
+
     customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='appointments')
     mechanic = models.ForeignKey(MechanicProfile, on_delete=models.CASCADE, related_name='appointments')
     service = models.ForeignKey(Service, on_delete=models.CASCADE)
@@ -28,6 +39,11 @@ class Appointment(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
     note = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    # Payment
+    payment_method = models.CharField(max_length=10, choices=PAYMENT_METHOD_CHOICES, blank=True, default='')
+    payment_status = models.CharField(max_length=10, choices=PAYMENT_STATUS_CHOICES, default='UNPAID')
+    cancel_reason = models.TextField(blank=True, default='', help_text='Lý do hủy')
 
     def __str__(self):
         return f"Appt #{self.id} - {self.customer.username} with {self.mechanic.user.username}"

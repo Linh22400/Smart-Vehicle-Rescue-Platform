@@ -16,13 +16,41 @@
     </div>
 
     <!-- Vehicle Type Selection Sheet -->
-    <van-action-sheet v-model:show="showVehicleSheet" title="Xe của bạn là loại gì?">
+    <van-action-sheet v-model:show="showVehicleSheet" title="Thông tin sự cố">
       <div class="vehicle-selection p-4">
+        <p class="mb-2" style="font-weight: 600; font-size: 14px; color: #333;">1. Loại xe của bạn</p>
         <van-radio-group v-model="selectedVehicle" class="vehicle-radio" direction="horizontal">
-          <van-radio name="BIKE">🏍️ Xe Máy</van-radio>
-          <van-radio name="CAR">🚗 Ô Tô</van-radio>
+          <van-radio name="BIKE">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <Bike :size="16" /> Xe Máy
+            </div>
+          </van-radio>
+          <van-radio name="CAR">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <Car :size="16" /> Ô Tô
+            </div>
+          </van-radio>
         </van-radio-group>
-        <van-button class="mt-4" type="danger" block round @click="confirmSOS">Tiếp tục Gắn Tìm Thợ</van-button>
+        
+        <div class="mt-4">
+          <p class="mb-2" style="font-weight: 600; font-size: 14px; color: #333;">2. Mô tả sự cố (Không bắt buộc)</p>
+          <van-field
+            v-model="problemDesc"
+            rows="2"
+            autosize
+            type="textarea"
+            placeholder="Ví dụ: Xe bị xịt lốp, hết bình..."
+            style="border: 1px solid #ebedf0; border-radius: 8px; padding: 8px 12px;"
+          />
+        </div>
+
+        <div class="mt-4">
+          <p class="mb-2" style="font-weight: 600; font-size: 14px; color: #333;">3. Ảnh hiện trạng (Không bắt buộc)</p>
+          <van-uploader v-model="damageImageFile" :max-count="1" accept="image/*" />
+          <p style="font-size: 12px; color: #888; margin-top: 4px;">Thêm ảnh để thợ dễ nhận biết vấn đề (hoặc AI sẽ tự lấy ảnh nếu bạn vừa quét).</p>
+        </div>
+
+        <van-button class="mt-4" type="danger" block round @click="confirmSOS">Tiếp tục Tìm Thợ</van-button>
       </div>
     </van-action-sheet>
 
@@ -75,6 +103,54 @@
         </div>
       </div>
     </transition>
+
+    <!-- SOS WAITING OVERLAY -->
+    <transition name="fade">
+      <div v-if="waitingBooking" class="waiting-overlay">
+        <div class="waiting-card">
+          <div class="waiting-pulse"></div>
+          <div class="waiting-icon">{{ waitingIcon }}</div>
+          <h3 class="waiting-title">{{ waitingTitle }}</h3>
+          <p class="waiting-desc">{{ waitingDesc }}</p>
+          <div class="waiting-id">Đơn #{{ waitingBooking.id }}</div>
+          <div class="waiting-steps">
+            <div class="ws" :class="{done: waitingStep >= 1}">✓ Đã gửi yêu cầu</div>
+            <div class="ws" :class="{done: waitingStep >= 2}">✓ Thợ đã nhận đơn</div>
+            <div class="ws" :class="{done: waitingStep >= 3}">✓ Thợ đang đến</div>
+            <div class="ws" :class="{done: waitingStep >= 4}">✓ Đang sửa chữa</div>
+          </div>
+          <div class="waiting-actions">
+            <!-- Chat button when accepted and above -->
+            <van-button v-if="waitingStep >= 2" type="primary" plain round size="small" icon="chat-o" @click="openChat">Chat</van-button>
+            <van-button v-if="waitingStep < 3" type="danger" plain round size="small" @click="cancelWaiting">Hủy đơn</van-button>
+            <van-button type="primary" round size="small" @click="goToHistory">Lịch Sử</van-button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <!-- CHAT POPUP -->
+    <van-popup v-model:show="showChat" position="bottom" :style="{ height: '80%', display: 'flex', flexDirection: 'column' }" round>
+      <div class="chat-header">
+        <h3 style="margin:0; font-size:16px; display:flex; align-items:center; gap:6px;">
+          <van-icon name="chat-o" size="18" /> Chat với Thợ
+        </h3>
+        <van-icon name="cross" size="18" @click="showChat = false" />
+      </div>
+      <div class="chat-body" id="chat-body-scroller">
+        <div v-if="loadingChat" class="text-center p-4">Đang tải...</div>
+        <div v-for="msg in chatMessages" :key="msg.id" class="chat-msg" :class="msg.is_mechanic ? 'msg-them' : 'msg-me'">
+          <div class="msg-bubble">
+            <div class="msg-text">{{ msg.text }}</div>
+            <div class="msg-time">{{ new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="chat-footer">
+        <van-field v-model="newChatMessage" placeholder="Nhập tin nhắn..." clearable @keyup.enter="sendChat" />
+        <van-button type="primary" icon="guide-o" round style="margin-left: 8px; width:40px; height:40px; padding:0;" @click="sendChat"></van-button>
+      </div>
+    </van-popup>
 
     <!-- AI Check Popup -->
     <van-popup
@@ -320,7 +396,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { showToast, showSuccessToast } from 'vant';
@@ -328,7 +404,7 @@ import L from 'leaflet';
 import {
   Stethoscope, Camera, Mic, CirclePlay, CircleStop,
   FileText, HelpCircle, ClipboardList, Wrench, BadgeDollarSign,
-  Lightbulb, TriangleAlert, ShieldCheck, Upload, XCircle
+  Lightbulb, TriangleAlert, ShieldCheck, Upload, XCircle, Bike, Car
 } from 'lucide-vue-next';
 
 // State
@@ -350,6 +426,7 @@ let mechanicMarkers = null; // LayerGroup for easy clearing
 // Vehicle Selection
 const showVehicleSheet = ref(false);
 const selectedVehicle = ref('BIKE');
+const damageImageFile = ref([]);
 
 const showAIModal = ref(false);
 const fileList = ref([]);
@@ -367,6 +444,9 @@ const audioFileList = ref([]);
 const pendingAudioBlob = ref(null);
 const pendingAudioName = ref('');
 const audioPreviewUrl = ref(null);
+
+// State for problem description
+const problemDesc = ref('');
 
 import { computed } from 'vue';
 
@@ -533,21 +613,175 @@ async function handleSOS() {
 
 async function bookMechanic(mech) {
     try {
-        await axios.post('/api/bookings/create/', {
+        const payload = {
             mechanic: mech.id,
             customer_lat: userLat.value,
             customer_lon: userLon.value,
-            problem_description: 'SOS Request via App',
-            vehicle_type: selectedVehicle.value
-        });
+            vehicle_type: selectedVehicle.value,
+            problem_description: problemDesc.value.trim() || 'SOS Request via App'
+        };
+
+        if (damageImageFile.value.length > 0) {
+            payload.damage_image = damageImageFile.value[0].content; // Base64 string
+        } else if (fileList.value.length > 0) {
+            payload.damage_image = fileList.value[0].content; // Base64 string
+        }
+
+        const res = await axios.post('/api/bookings/create/', payload);
         showSuccessToast(`Đã gửi yêu cầu đến ${mech.username}!`);
         showMechanics.value = false;
-        router.push('/history');
+        // Show waiting overlay instead of redirecting
+        waitingBooking.value = res.data;
+        startWaitingPolling();
     } catch (error) {
         showToast('Lỗi đặt thợ. Vui lòng thử lại.');
         console.error(error);
     }
 }
+
+// ── SOS Waiting State ──
+const waitingBooking = ref(null);
+let waitingPollInterval = null;
+
+// ── Chat State ──
+const showChat = ref(false);
+const chatMessages = ref([]);
+const newChatMessage = ref('');
+const loadingChat = ref(false);
+let chatPollInterval = null;
+
+const openChat = async () => {
+    showChat.value = true;
+    await fetchChats();
+    startChatPolling();
+    scrollToBottom();
+};
+
+const fetchChats = async () => {
+    if (!waitingBooking.value) return;
+    try {
+        const res = await axios.get(`/api/bookings/${waitingBooking.value.id}/chat/`);
+        const isNewMessage = chatMessages.value.length < res.data.length;
+        chatMessages.value = res.data;
+        if (isNewMessage) scrollToBottom();
+    } catch (e) {
+        console.error('Lỗi tải chat:', e);
+    }
+};
+
+const sendChat = async () => {
+    if (!newChatMessage.value.trim() || !waitingBooking.value) return;
+    try {
+        await axios.post(`/api/bookings/${waitingBooking.value.id}/chat/send/`, {
+            text: newChatMessage.value.trim()
+        });
+        newChatMessage.value = '';
+        await fetchChats();
+    } catch (e) {
+        showToast('Lỗi gửi tin nhắn');
+    }
+};
+
+const startChatPolling = () => {
+    if (chatPollInterval) return;
+    chatPollInterval = setInterval(fetchChats, 3000); // poll every 3 seconds
+};
+
+const stopChatPolling = () => {
+    if (chatPollInterval) {
+        clearInterval(chatPollInterval);
+        chatPollInterval = null;
+    }
+};
+
+const scrollToBottom = () => {
+    nextTick(() => {
+        const scroller = document.getElementById('chat-body-scroller');
+        if (scroller) scroller.scrollTop = scroller.scrollHeight;
+    });
+};
+
+onUnmounted(() => {
+    stopWaitingPolling();
+    stopChatPolling();
+});
+
+
+const waitingStep = computed(() => {
+    if (!waitingBooking.value) return 0;
+    const s = waitingBooking.value.status;
+    if (s === 'PENDING') return 1;
+    if (s === 'ACCEPTED') return 2;
+    if (s === 'ON_THE_WAY') return 3;
+    if (s === 'IN_PROGRESS') return 4;
+    return 0;
+});
+
+const waitingIcon = computed(() => {
+    const step = waitingStep.value;
+    if (step <= 1) return '\u23f3';
+    if (step === 2) return '\u2705';
+    if (step === 3) return '\ud83d\ude97';
+    if (step === 4) return '\ud83d\udd27';
+    return '\u23f3';
+});
+
+const waitingTitle = computed(() => {
+    const step = waitingStep.value;
+    if (step <= 1) return 'Đang chờ thợ nhận đơn...';
+    if (step === 2) return 'Thợ đã nhận đơn!';
+    if (step === 3) return 'Thợ đang đến chỗ bạn!';
+    if (step === 4) return 'Thợ đang sửa xe!';
+    return 'Đang xử lý...';
+});
+
+const waitingDesc = computed(() => {
+    const step = waitingStep.value;
+    if (step <= 1) return 'Yêu cầu của bạn đã được gửi. Vui lòng chờ thợ xác nhận.';
+    if (step === 2) return 'Thợ sẽ bắt đầu di chuyển đến vị trí của bạn.';
+    if (step === 3) return 'Bạn có thể theo dõi vị trí thợ trong mục Lịch sử.';
+    if (step === 4) return 'Thợ đã đến và đang khắc phục sự cố.';
+    return '';
+});
+
+const startWaitingPolling = () => {
+    if (waitingPollInterval) return;
+    waitingPollInterval = setInterval(async () => {
+        if (!waitingBooking.value) { stopWaitingPolling(); return; }
+        try {
+            const res = await axios.get(`/api/bookings/${waitingBooking.value.id}/tracking/`);
+            waitingBooking.value = { ...waitingBooking.value, status: res.data.status };
+            if (res.data.status === 'COMPLETED' || res.data.status === 'CANCELLED') {
+                stopWaitingPolling();
+                if (res.data.status === 'CANCELLED') {
+                    showToast('Đơn đã bị hủy');
+                    waitingBooking.value = null;
+                }
+            }
+        } catch (e) { }
+    }, 5000);
+};
+
+const stopWaitingPolling = () => {
+    if (waitingPollInterval) { clearInterval(waitingPollInterval); waitingPollInterval = null; }
+    stopChatPolling();
+};
+
+const cancelWaiting = async () => {
+    if (!waitingBooking.value) return;
+    try {
+        await axios.post(`/api/bookings/${waitingBooking.value.id}/update-status/`, { status: 'CANCELLED' });
+        showToast('Đã hủy đơn');
+        stopWaitingPolling();
+        waitingBooking.value = null;
+    } catch (e) { showToast('Lỗi khi hủy'); }
+};
+
+const goToHistory = () => {
+    stopWaitingPolling();
+    waitingBooking.value = null;
+    router.push('/history');
+};
 
 // AI Analysis - Gemini Vision
 async function analyzeImage(file) {
@@ -1156,12 +1390,13 @@ const uploadAudioFile = async (fileInfo) => {
 
 /* Grid layout */
 .mech-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  column-count: 2; /* Switch to Masonry layout */
+  column-gap: 10px;
 }
 
 .mech-grid-card {
+  break-inside: avoid; /* Prevent splitting between columns */
+  margin-bottom: 10px;
   background: #fff;
   border-radius: 16px;
   padding: 16px 10px 12px;
@@ -1568,6 +1803,125 @@ const uploadAudioFile = async (fileInfo) => {
 
 /* Full-width urgency stat box */
 .ai-stat-box.full { width: 100%; }
+
+/* ── SOS Waiting Overlay ── */
+.waiting-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999;
+}
+.waiting-card {
+  background: #fff;
+  border-radius: 24px;
+  padding: 32px 28px;
+  width: 85%;
+  max-width: 360px;
+  text-align: center;
+  position: relative;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.18);
+}
+.waiting-pulse {
+  position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+  width: 80px; height: 80px; border-radius: 50%;
+  background: rgba(37,99,235,0.15);
+  animation: waitPulse 2s ease-in-out infinite;
+}
+@keyframes waitPulse {
+  0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.5; }
+  50% { transform: translateX(-50%) scale(1.3); opacity: 0; }
+}
+.waiting-icon { font-size: 48px; margin-bottom: 12px; position: relative; z-index: 1; }
+.waiting-title { font-size: 19px; font-weight: 800; color: #1a1a2e; margin: 0 0 6px; }
+.waiting-desc { font-size: 13px; color: #888; margin: 0 0 14px; line-height: 1.5; }
+.waiting-id { font-size: 11px; color: #aaa; margin-bottom: 16px; }
+.waiting-steps {
+  text-align: left; margin-bottom: 20px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.ws {
+  font-size: 13px; color: #ccc; font-weight: 600;
+  padding-left: 8px; border-left: 3px solid #eee;
+  transition: all 0.3s;
+}
+.ws.done { color: #07c160; border-left-color: #07c160; }
+.waiting-actions { display: flex; gap: 10px; justify-content: center; }
+
+/* CHAT POPUP */
+.chat-header {
+  padding: 16px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; background: #fff; border-radius: 20px 20px 0 0;
+}
+.chat-body {
+  flex: 1; overflow-y: auto; padding: 16px; background: #f9f9f9; display: flex; flex-direction: column; gap: 10px;
+}
+.chat-msg { display: flex; flex-direction: column; max-width: 80%; }
+.chat-msg.msg-me { align-self: flex-end; align-items: flex-end; }
+.chat-msg.msg-them { align-self: flex-start; align-items: flex-start; }
+.msg-bubble {
+  padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.4; position: relative;
+}
+.msg-me .msg-bubble { background: #1989fa; color: #fff; border-bottom-right-radius: 4px; }
+.msg-them .msg-bubble { background: #fff; color: #333; border: 1px solid #eaeaea; border-bottom-left-radius: 4px; }
+.msg-time { font-size: 10px; opacity: 0.7; margin-top: 4px; text-align: right; }
+.msg-them .msg-time { text-align: left; }
+.chat-footer {
+  padding: 10px 16px; background: #fff; border-top: 1px solid #f0f0f0; display: flex; align-items: center;
+}
+.chat-footer .van-field { background: #f5f5f5; border-radius: 20px; padding: 8px 16px; flex: 1; }
+
+/* Fade transition */
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+
+/* ─── Modern Buttons Override ─── */
+:deep(.van-button) {
+  border-radius: 8px;
+  font-weight: 600;
+  border: none !important;
+  transition: all 0.2s ease;
+  padding: 0 16px;
+}
+:deep(.van-button:active) {
+  transform: scale(0.96);
+}
+:deep(.van-button--primary:not(.van-button--plain)) {
+  background: linear-gradient(135deg, #2563eb, #4f46e5) !important;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+  color: #fff !important;
+}
+:deep(.van-button--success:not(.van-button--plain)) {
+  background: linear-gradient(135deg, #059669, #10b981) !important;
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.25);
+  color: #fff !important;
+}
+:deep(.van-button--warning:not(.van-button--plain)) {
+  background: linear-gradient(135deg, #ea580c, #f97316) !important;
+  box-shadow: 0 4px 10px rgba(249, 115, 22, 0.25);
+  color: #fff !important;
+}
+:deep(.van-button--danger:not(.van-button--plain)) {
+  background: linear-gradient(135deg, #e11d48, #f43f5e) !important;
+  box-shadow: 0 4px 10px rgba(244, 63, 94, 0.25);
+  color: #fff !important;
+}
+/* Plain buttons styling */
+:deep(.van-button--primary.van-button--plain) {
+  background: #eff6ff !important;
+  color: #2563eb !important;
+}
+:deep(.van-button--warning.van-button--plain) {
+  background: #fff7ed !important;
+  color: #ea580c !important;
+}
+:deep(.van-button--success.van-button--plain) {
+  background: #ecfdf5 !important;
+  color: #059669 !important;
+}
+:deep(.van-button--danger.van-button--plain) {
+  background: #fff1f2 !important;
+  color: #e11d48 !important;
+}
 
 </style>
 

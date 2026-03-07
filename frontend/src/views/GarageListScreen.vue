@@ -119,7 +119,7 @@ const toggleCollapse = (id) => {
 };
 
 const formatPrice = (p) =>
-  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p);
+  Number(p || 0).toLocaleString('vi-VN') + ' VNĐ';
 
 const bookService = (mech, svc) => {
   router.push({
@@ -178,23 +178,24 @@ const bookService = (mech, svc) => {
 .loading-state { text-align: center; padding: 40px 20px; color: #888; font-size: 14px; }
 .loading-state p { margin-top: 10px; }
 
-/* ─── 2-Column Grid ─── */
+/* ─── 2-Column Grid (Masonry) ─── */
 .garage-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  column-count: 2;
+  column-gap: 10px;
   padding: 0 12px;
 }
 
 /* ─── Garage Card ─── */
 .garage-card {
+  break-inside: avoid;
+  margin-bottom: 10px;
   background: #fff;
   border-radius: 16px;
   padding: 14px 12px 10px;
   box-shadow: 0 2px 10px rgba(0,0,0,0.07);
   border: 1.5px solid #eef0f5;
   transition: box-shadow 0.2s;
-  align-self: start;
+  display: block;
 }
 .garage-card.expanded {
   box-shadow: 0 4px 18px rgba(37,99,235,0.12);

@@ -4,18 +4,22 @@
       title="Hồ Sơ Thợ"
       left-arrow
       @click-left="$router.back()"
+      class="custom-nav-bar"
     />
 
-    <div class="p-4">
+    <div class="profile-content">
       <!-- Avatar + Name -->
       <div class="avatar-section">
-        <van-image
-          round
-          width="80"
-          height="80"
-          src="https://img.freepik.com/free-icon/user_318-159711.jpg"
-        />
-        <h3>{{ form.username }}</h3>
+        <div class="avatar-ring">
+          <van-image
+            round
+            width="80"
+            height="80"
+            :src="avatarUrl || 'https://img.freepik.com/free-icon/user_318-159711.jpg'"
+            style="object-fit:cover;"
+          />
+        </div>
+        <h3 class="mechanic-name">{{ form.username }}</h3>
         <span class="role-tag">Thợ Cứu Hộ</span>
       </div>
 
@@ -38,18 +42,42 @@
       <van-cell-group inset title="Vị Trí Hiện Tại" class="mt-4">
         <van-cell title="Latitude" :value="form.latitude ? form.latitude.toFixed(5) : 'Chưa cập nhật'" />
         <van-cell title="Longitude" :value="form.longitude ? form.longitude.toFixed(5) : 'Chưa cập nhật'" />
-        <div class="p-2">
+        <div class="gps-btn-wrap">
           <van-button
             type="primary"
             size="small"
             block
             plain
+            icon="location-o"
             :loading="gpsLoading"
+            loading-text="Đang lấy GPS..."
             @click="getGPS"
           >
-            📍 Cập nhật vị trí GPS
+            Cập nhật vị trí GPS
           </van-button>
         </div>
+      </van-cell-group>
+
+      <van-cell-group inset title="Thông Tin Ngân Hàng (Nhận Tiền)" class="mt-4">
+        <van-field
+          v-model="form.bank_name"
+          label="Tên NH"
+          placeholder="VD: MB, VCB, ACB..."
+          left-icon="card"
+        />
+        <van-field
+          v-model="form.bank_account_no"
+          label="Số TK"
+          type="number"
+          placeholder="Số tài khoản"
+          left-icon="points"
+        />
+        <van-field
+          v-model="form.bank_account_name"
+          label="Tên chủ thẻ"
+          placeholder="VIẾT HOA KHÔNG DẤU"
+          left-icon="user-circle-o"
+        />
       </van-cell-group>
 
       <van-cell-group inset title="Trạng Thái" class="mt-4">
@@ -58,11 +86,11 @@
             <van-switch v-model="form.isAvailable" size="22px" />
           </template>
         </van-cell>
+        <van-cell title="Quản Lý Dịch Vụ" is-link icon="shop-o" @click="$router.push('/mechanic/services')" />
       </van-cell-group>
 
-      <div class="mt-4">
+      <div class="save-btn-wrap">
         <van-button
-          round
           block
           type="primary"
           :loading="saving"
@@ -87,7 +115,12 @@ const form = ref({
     latitude: null,
     longitude: null,
     isAvailable: true,
+    bank_name: '',
+    bank_account_no: '',
+    bank_account_name: ''
 });
+
+const avatarUrl = ref('');
 
 const saving = ref(false);
 const gpsLoading = ref(false);
@@ -98,11 +131,15 @@ onMounted(async () => {
         const user = res.data;
         form.value.username = user.username;
         form.value.phone = user.phone_number || '';
+        avatarUrl.value = user.avatar || '';
         if (user.mechanic_profile) {
             form.value.specialty = user.mechanic_profile.specialty;
             form.value.latitude = user.mechanic_profile.latitude;
             form.value.longitude = user.mechanic_profile.longitude;
             form.value.isAvailable = user.mechanic_profile.is_available;
+            form.value.bank_name = user.mechanic_profile.bank_name || '';
+            form.value.bank_account_no = user.mechanic_profile.bank_account_no || '';
+            form.value.bank_account_name = user.mechanic_profile.bank_account_name || '';
         }
     } catch(e) {
         // Fallback to localStorage
@@ -116,6 +153,9 @@ onMounted(async () => {
                 form.value.latitude = user.mechanic_profile.latitude;
                 form.value.longitude = user.mechanic_profile.longitude;
                 form.value.isAvailable = user.mechanic_profile.is_available;
+                form.value.bank_name = user.mechanic_profile.bank_name || '';
+                form.value.bank_account_no = user.mechanic_profile.bank_account_no || '';
+                form.value.bank_account_name = user.mechanic_profile.bank_account_name || '';
             }
         }
     }
@@ -150,6 +190,9 @@ const saveProfile = async () => {
             longitude: form.value.longitude,
             is_available: form.value.isAvailable,
             specialty: form.value.specialty, 
+            bank_name: form.value.bank_name,
+            bank_account_no: form.value.bank_account_no,
+            bank_account_name: form.value.bank_account_name,
         });
 
         // Update phone via profile API
@@ -172,26 +215,119 @@ const saveProfile = async () => {
 </script>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
 .mechanic-profile-screen {
-    background: #f7f8fa;
-    min-height: 100vh;
+  background: #f4f6f9;
+  min-height: 100vh;
+  font-family: 'Inter', sans-serif;
+  padding-bottom: 40px;
 }
+
+/* Override nav-bar */
+:deep(.custom-nav-bar) {
+  background: linear-gradient(135deg, #1a6fdf, #4f46e5) !important;
+}
+:deep(.custom-nav-bar .van-nav-bar__title) { color: #fff !important; font-weight: 700; }
+:deep(.custom-nav-bar .van-icon) { color: #fff !important; }
+
+.profile-content {
+  padding: 16px;
+}
+
+/* Avatar Section */
 .avatar-section {
-    text-align: center;
-    padding: 20px 0 10px 0;
+  text-align: center;
+  padding: 24px 0 20px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
-.avatar-section h3 {
-    margin: 10px 0 4px 0;
-    font-size: 18px;
+.avatar-ring {
+  padding: 4px;
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  border-radius: 50%;
+  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);
+  margin-bottom: 12px;
+}
+.mechanic-name {
+  margin: 0 0 6px 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: #1a1a2e;
 }
 .role-tag {
-    background: #1989fa;
-    color: white;
-    padding: 2px 12px;
-    border-radius: 12px;
-    font-size: 12px;
+  background: #e0eaff;
+  color: #2563eb;
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
 }
-.p-4 { padding: 16px; }
-.p-2 { padding: 8px; }
-.mt-4 { margin-top: 16px; }
+
+/* Customizing Cell Groups & Inputs */
+:deep(.van-cell-group--inset) {
+  margin: 16px 0 0 0;
+  border-radius: 16px;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+:deep(.van-cell-group__title) {
+  color: #888;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 16px 16px 8px;
+}
+:deep(.van-cell) {
+  padding: 14px 16px;
+}
+:deep(.van-field__label) {
+  color: #555;
+  font-weight: 600;
+}
+:deep(.van-field__control) {
+  font-weight: 600;
+  color: #111;
+}
+
+.gps-btn-wrap {
+  padding: 12px 16px 16px;
+}
+
+.save-btn-wrap {
+  margin-top: 24px;
+}
+
+/* ─── Modern Buttons Override ─── */
+:deep(.van-button) {
+  border-radius: 12px;
+  font-weight: 700;
+  border: none !important;
+  transition: all 0.2s ease;
+  padding: 0 16px;
+  height: 44px;
+}
+:deep(.van-button--small) {
+  border-radius: 8px;
+  height: 36px;
+  font-size: 13px;
+}
+:deep(.van-button:active) {
+  transform: scale(0.97);
+}
+:deep(.van-button--primary:not(.van-button--plain)) {
+  background: linear-gradient(135deg, #2563eb, #4f46e5) !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+  color: #fff !important;
+  font-size: 16px;
+  letter-spacing: 0.5px;
+}
+:deep(.van-button--primary.van-button--plain) {
+  background: #eff6ff !important;
+  color: #2563eb !important;
+  border: 1px solid #bfdbfe !important;
+  box-shadow: none;
+}
 </style>

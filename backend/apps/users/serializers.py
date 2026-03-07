@@ -4,7 +4,7 @@ from .models import CustomUser, MechanicProfile
 class MechanicProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = MechanicProfile
-        fields = ['id', 'latitude', 'longitude', 'is_available', 'rating', 'specialty', 'vehicle_type']
+        fields = ['id', 'latitude', 'longitude', 'is_available', 'rating', 'specialty', 'vehicle_type', 'bank_name', 'bank_account_no', 'bank_account_name']
 
 class UserSerializer(serializers.ModelSerializer):
     mechanic_profile = MechanicProfileSerializer(read_only=True)
@@ -12,7 +12,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ['id', 'username', 'password', 'first_name', 'last_name', 'email', 'phone_number', 'is_mechanic', 'mechanic_profile']
+        fields = ['id', 'username', 'password', 'first_name', 'last_name', 'email', 'phone_number', 'is_mechanic', 'mechanic_profile', 'avatar']
 
     def create(self, validated_data):
         password = validated_data.pop('password')

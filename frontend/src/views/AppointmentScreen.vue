@@ -51,9 +51,8 @@ const note = ref('');
 const loading = ref(false);
 
 const formatPrice = (p) => {
-     if(!p) return '0 ₫';
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p);
-}
+    return Number(p || 0).toLocaleString('vi-VN') + ' VNĐ';
+};
 
 const onSubmit = async () => {
     if (!apptTime.value) {

@@ -7,6 +7,7 @@ class CustomUser(AbstractUser):
     """
     is_mechanic = models.BooleanField(default=False)
     phone_number = models.CharField(max_length=15, blank=True, null=True)
+    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
 
     def __str__(self):
         return self.username
@@ -28,6 +29,9 @@ class MechanicProfile(models.Model):
     rating = models.FloatField(default=5.0)
     specialty = models.CharField(max_length=100, default="General Repair")
     vehicle_type = models.CharField(max_length=10, choices=VEHICLE_CHOICES, default='ALL')
+    bank_name = models.CharField(max_length=50, blank=True, null=True, help_text="Tên viết tắt Ngân hàng (VD: MB, VCB)")
+    bank_account_no = models.CharField(max_length=50, blank=True, null=True, help_text="Số tài khoản")
+    bank_account_name = models.CharField(max_length=100, blank=True, null=True, help_text="Tên chủ tài khoản")
 
     def __str__(self):
         return f"Mechanic: {self.user.username}"

@@ -98,4 +98,18 @@ body.dark-theme, .app-layout.dark {
 .dark-theme .van-tabbar {
     background-color: #1c1c1e !important;
 }
+
+/* Custom UI Dark Mode Overrides */
+.dark-theme .history-container, .dark-theme .history-page, .dark-theme .profile-page, .dark-theme .mechanic-profile-screen { background-color: #1c1c1e !important; }
+.dark-theme .hst-card, .dark-theme .info-card, .dark-theme .menu-card, .dark-theme .edit-popup, .dark-theme .tracking-info, .dark-theme .payment-container, .dark-theme .detail-container { background-color: #2c2c2e !important; color: #f5f5f5 !important; }
+.dark-theme .chat-body { background: #1c1c1e !important; }
+.dark-theme .chat-header, .dark-theme .chat-footer { background: #2c2c2e !important; border-color: #444 !important; }
+.dark-theme .msg-them .msg-bubble { background: #3a3a3c !important; color: #f5f5f5 !important; border-color: #555 !important; }
+.dark-theme .payment-method-card { border-color: #444 !important; }
+.dark-theme .menu-divider, .dark-theme .info-divider { background-color: #444 !important; }
+.dark-theme .text-gray-700, .dark-theme .info-label, .dark-theme .detail-label { color: #aaa !important; }
+.dark-theme .detail-value { color: #f5f5f5 !important; }
+.dark-theme .tracking-title, .dark-theme .detail-title { color: #f5f5f5 !important; }
+.dark-theme .chat-header h3 { color: #f5f5f5 !important; }
+.dark-theme .van-popup { background: #2c2c2e !important; }
 </style>

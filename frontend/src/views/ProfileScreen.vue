@@ -5,9 +5,12 @@
     <div class="profile-hero">
       <div class="hero-bg-circle"></div>
       <div class="profile-avatar-wrap">
-        <van-image round width="84px" height="84px"
-          src="https://img.freepik.com/free-icon/user_318-159711.jpg"
-          class="profile-avatar" />
+        <van-uploader v-model="avatarUploader" :max-count="1" accept="image/*" :after-read="onReadAvatar" style="position:relative">
+          <van-image round width="84px" height="84px"
+            :src="avatarUrl || 'https://img.freepik.com/free-icon/user_318-159711.jpg'"
+            class="profile-avatar" style="object-fit:cover;" />
+          <div class="avatar-edit-icon"><van-icon name="photograph" size="14" /></div>
+        </van-uploader>
         <div v-if="isMechanic" class="avatar-badge">Thợ</div>
       </div>
       <div class="profile-name">{{ displayName }}</div>
@@ -64,9 +67,16 @@
     <div class="menu-section">
       <div class="menu-group-label">Chức năng</div>
       <div class="menu-card">
-        <div v-if="isMechanic" class="menu-item" @click="$router.push('/mechanic')">
+        <div class="menu-item" @click="toggleDarkMode">
+          <div class="menu-item-icon" style="background:#555"><van-icon name="bulb-o" size="18" color="#fff" /></div>
+          <span class="menu-item-label">Chế độ ban đêm</span>
+          <van-switch v-model="isDarkMode" size="20px" @click.stop />
+        </div>
+        <div class="menu-divider"></div>
+        <div class="menu-divider"></div>
+        <div v-if="isMechanic" class="menu-item" @click="$router.push('/mechanic/profile')">
           <div class="menu-item-icon purple"><van-icon name="manager-o" size="18" /></div>
-          <span class="menu-item-label">Trang tổng quan Thợ</span>
+          <span class="menu-item-label">Hồ sơ Thợ (Sẵn sàng, Ngân hàng)</span>
           <van-icon name="arrow" size="14" color="#ccc" />
         </div>
         <div v-if="isMechanic" class="menu-divider"></div>
@@ -153,12 +163,23 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
-import { showSuccessToast, showFailToast } from 'vant';
+import { showToast, showSuccessToast } from 'vant';
+import { globalThemeState } from '../App.vue';
 
 const router = useRouter();
+
+// Dark mode logic
+const isDarkMode = ref(globalThemeState.value === 'dark');
+watch(isDarkMode, (newVal) => {
+  const theme = newVal ? 'dark' : 'light';
+  globalThemeState.value = theme;
+  localStorage.setItem('app_theme', theme);
+  window.dispatchEvent(new CustomEvent('theme-changed', { detail: theme }));
+});
+const toggleDarkMode = () => { isDarkMode.value = !isDarkMode.value; };
 
 // ─── User State ──────────────────────────────────────────────────
 const username    = ref('');
@@ -192,6 +213,16 @@ const form = ref({
   current_password: '',
   new_password: '',
 });
+
+const avatarUrl = ref('');
+const avatarFile = ref(null);
+const avatarUploader = ref([]);
+
+const onReadAvatar = (file) => {
+    avatarFile.value = file.file;
+    avatarUrl.value = file.content; // preview
+    saveProfile(true); // Auto upload immediately
+};
 
 const openEdit = () => {
   form.value = {
@@ -230,39 +261,53 @@ const loadProfile = async () => {
     email.value       = u.email        || '';
     phoneNumber.value = u.phone_number || '';
     isMechanic.value  = u.is_mechanic  || false;
+    avatarUrl.value   = u.avatar       || '';
     localStorage.setItem('user', JSON.stringify(u));
   } catch (_) { /* keep localStorage values */ }
 };
 
 // ─── Save Profile ─────────────────────────────────────────────────
-const saveProfile = async () => {
-  saving.value = true;
+// ─── Save Profile ─────────────────────────────────────────────────
+const saveProfile = async (isAvatarUpload = false) => {
+  if (!isAvatarUpload) saving.value = true;
   try {
-    const payload = {
-      first_name:   form.value.first_name,
-      last_name:    form.value.last_name,
-      email:        form.value.email,
-      phone_number: form.value.phone_number,
-    };
+    const formData = new FormData();
+    formData.append('first_name', form.value.first_name || firstName.value || '');
+    formData.append('last_name', form.value.last_name || lastName.value || '');
+    formData.append('email', form.value.email || email.value || '');
+    formData.append('phone_number', form.value.phone_number || phoneNumber.value || '');
+    
     if (form.value.new_password) {
-      payload.current_password = form.value.current_password;
-      payload.new_password     = form.value.new_password;
+      formData.append('current_password', form.value.current_password);
+      formData.append('new_password', form.value.new_password);
     }
-    const res = await axios.patch('/api/users/profile/', payload);
+
+    if (avatarFile.value) {
+      formData.append('avatar', avatarFile.value);
+    }
+
+    const res = await axios.patch('/api/users/profile/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
     const u = res.data;
     firstName.value   = u.first_name   || '';
     lastName.value    = u.last_name    || '';
     email.value       = u.email        || '';
     phoneNumber.value = u.phone_number || '';
+    avatarUrl.value   = u.avatar       || '';
+    
     const stored = JSON.parse(localStorage.getItem('user') || '{}');
     localStorage.setItem('user', JSON.stringify({ ...stored, ...u }));
-    showSuccessToast('Cập nhật thành công!');
+    
+    showSuccessToast(isAvatarUpload ? 'Đã đổi ảnh đại diện' : 'Cập nhật thành công!');
     editVisible.value = false;
+    avatarFile.value = null; // reset file
+    avatarUploader.value = []; // clear uploader UI cache
   } catch (e) {
     const msg = e.response?.data?.error || 'Lỗi cập nhật thông tin';
     showFailToast(msg);
   } finally {
-    saving.value = false;
+    if (!isAvatarUpload) saving.value = false;
   }
 };
 
@@ -322,6 +367,20 @@ onMounted(loadProfile);
 }
 .chip-mechanic { background: rgba(245,166,35,0.25); color: #fde68a; }
 .chip-customer { background: rgba(255,255,255,0.2); color: rgba(255,255,255,0.9); }
+.avatar-edit-icon {
+  position: absolute;
+  bottom: 0px;
+  right: 0px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  border: 2px solid white;
+}
 
 /* ── Info Card ── */
 .info-card {

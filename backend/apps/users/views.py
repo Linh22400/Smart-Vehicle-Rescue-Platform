@@ -57,6 +57,13 @@ class MechanicStatusView(APIView):
         if 'specialty' in data:
             profile.specialty = data['specialty']
             
+        if 'bank_name' in data:
+            profile.bank_name = data['bank_name']
+        if 'bank_account_no' in data:
+            profile.bank_account_no = data['bank_account_no']
+        if 'bank_account_name' in data:
+            profile.bank_account_name = data['bank_account_name']
+            
         profile.save()
         return Response(MechanicProfileSerializer(profile).data)
 
@@ -100,6 +107,10 @@ class UserProfileView(APIView):
         for field in ('first_name', 'last_name', 'email', 'phone_number'):
             if field in data:
                 setattr(user, field, data[field])
+
+        # Avatar upload
+        if 'avatar' in request.FILES:
+            user.avatar = request.FILES['avatar']
 
         # Password change (requires current_password)
         new_password = data.get('new_password', '').strip()

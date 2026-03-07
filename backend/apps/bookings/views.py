@@ -3,8 +3,8 @@ from rest_framework.views import APIView
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from apps.users.models import MechanicProfile
-from .models import Booking
-from .serializers import MechanicDistanceSerializer, BookingSerializer
+from .models import Booking, ChatMessage
+from .serializers import MechanicDistanceSerializer, BookingSerializer, ChatMessageSerializer
 
 class SOSFindMechanicsView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -90,8 +90,8 @@ class UpdateBookingStatusView(APIView):
             booking = Booking.objects.get(pk=pk)
         except Booking.DoesNotExist:
             return Response({"error": "Booking not found"}, status=404)
-        
         # Check permissions
+        print(f"DEBUG: booking.mechanic={booking.mechanic}, request.user={request.user}, ids=({getattr(booking.mechanic, 'id', None)}, {request.user.id})")
         is_owner = (booking.customer == request.user)
         is_assigned_mechanic = (booking.mechanic == request.user)
 
@@ -109,11 +109,13 @@ class UpdateBookingStatusView(APIView):
              return Response({"error": "Not authorized to update this booking"}, status=403)
 
         if new_status in ['ACCEPTED', 'ON_THE_WAY', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']:
-            # When mechanic completes, save the repair cost
             if new_status == 'COMPLETED':
                 repair_cost = request.data.get('repair_cost')
                 if repair_cost is not None:
                     booking.repair_cost = repair_cost
+            if new_status == 'CANCELLED':
+                cancel_reason = request.data.get('cancel_reason', '')
+                booking.cancel_reason = cancel_reason
             booking.status = new_status
             booking.save()
             return Response(BookingSerializer(booking).data)
@@ -187,7 +189,73 @@ class ConfirmPaymentView(APIView):
             return Response({"error": "Invalid payment method. Use CASH or TRANSFER"}, status=400)
 
         booking.payment_method = payment_method
-        booking.payment_status = 'PAID'
+        booking.payment_status = 'PENDING'
         booking.save(update_fields=['payment_method', 'payment_status'])
 
         return Response(BookingSerializer(booking).data)
+
+class VerifyPaymentView(APIView):
+    """
+    Mechanic verifies that payment is received.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            booking = Booking.objects.get(pk=pk)
+        except Booking.DoesNotExist:
+            return Response({"error": "Booking not found"}, status=404)
+
+        if booking.mechanic != request.user:
+            return Response({"error": "Not authorized to verify payment for this booking"}, status=403)
+
+        if booking.payment_status != 'PENDING':
+            return Response({"error": "Booking payment is not pending"}, status=400)
+
+        booking.payment_status = 'PAID'
+        booking.save(update_fields=['payment_status'])
+
+        return Response(BookingSerializer(booking).data)
+
+class ChatListView(generics.ListAPIView):
+    serializer_class = ChatMessageSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        booking_id = self.kwargs.get('pk')
+        try:
+            booking = Booking.objects.get(id=booking_id)
+        except Booking.DoesNotExist:
+            return ChatMessage.objects.none()
+        
+        # Security: only customer or mechanic of the booking can view chats
+        if booking.customer != self.request.user and booking.mechanic != self.request.user:
+            return ChatMessage.objects.none()
+            
+        return booking.messages.all()
+
+class ChatSendView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            booking = Booking.objects.get(id=pk)
+        except Booking.DoesNotExist:
+            return Response({"error": "Booking not found"}, status=404)
+
+        if booking.customer != request.user and booking.mechanic != request.user:
+            return Response({"error": "Not authorized to send message to this booking"}, status=403)
+
+        text = request.data.get('text', '').strip()
+        image = request.FILES.get('image')
+
+        if not text and not image:
+            return Response({"error": "Message text or image is required"}, status=400)
+
+        msg = ChatMessage.objects.create(
+            booking=booking,
+            sender=request.user,
+            text=text,
+            image=image
+        )
+        return Response(ChatMessageSerializer(msg).data, status=status.HTTP_201_CREATED)

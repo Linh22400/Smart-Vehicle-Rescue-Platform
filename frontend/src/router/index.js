@@ -12,6 +12,7 @@ import SettingsScreen from '../views/SettingsScreen.vue'
 import TermsScreen from '../views/TermsScreen.vue'
 import PrivacyScreen from '../views/PrivacyScreen.vue'
 import MechanicProfileScreen from '../views/MechanicProfileScreen.vue'
+import MechanicServicesScreen from '../views/MechanicServicesScreen.vue'
 
 const routes = [
     { path: '/', redirect: '/login' },
@@ -28,6 +29,7 @@ const routes = [
     { path: '/terms', component: TermsScreen },
     { path: '/privacy', component: PrivacyScreen },
     { path: '/mechanic/profile', component: MechanicProfileScreen },
+    { path: '/mechanic/services', component: MechanicServicesScreen },
 ]
 
 const router = createRouter({

@@ -23,6 +23,7 @@ class Booking(models.Model):
 
     PAYMENT_STATUS_CHOICES = (
         ('UNPAID', 'Chưa thanh toán'),
+        ('PENDING', 'Chờ xác nhận'),
         ('PAID', 'Đã thanh toán'),
     )
 
@@ -42,6 +43,23 @@ class Booking(models.Model):
     repair_cost = models.DecimalField(max_digits=12, decimal_places=0, null=True, blank=True, help_text='Chi phí sửa chữa (VNĐ)')
     payment_method = models.CharField(max_length=10, choices=PAYMENT_METHOD_CHOICES, blank=True, default='')
     payment_status = models.CharField(max_length=10, choices=PAYMENT_STATUS_CHOICES, default='UNPAID')
+    cancel_reason = models.TextField(blank=True, default='', help_text='Lý do hủy đơn')
+    damage_image = models.ImageField(upload_to='sos_images/', blank=True, null=True, help_text='Ảnh mức độ hư hỏng lúc gửi SOS')
 
     def __str__(self):
         return f"Booking {self.id} - {self.status}"
+
+
+class ChatMessage(models.Model):
+    """Chat message within a booking between customer and mechanic."""
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name='messages')
+    sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    text = models.TextField()
+    image = models.ImageField(upload_to='chat_images/', blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"Msg #{self.id} in Booking {self.booking_id}"
