@@ -10,7 +10,7 @@
 
     <van-form @submit="onSubmit">
       <van-cell-group inset title="Thời gian & Ghi chú" class="mt-2">
-        <!-- HTML5 datetime-local input is simpler for MVP than custom Vant picker -->
+        <!-- Dùng input datetime-local HTML5 đơn giản hơn Vant picker tuỳ chỉnh -->
         <van-field name="datetime" label="Thời gian">
             <template #input>
                 <input type="datetime-local" v-model="apptTime" required style="width: 100%; border: none; background: transparent;" />
@@ -68,8 +68,8 @@ const onSubmit = async () => {
         return;
     }
 
-    // Ensure date format is safe (append seconds if missing)
-    const formattedTime = apptTime.value + ':00'; // Simple append, works for datetime-local input string check
+    // Đảm bảo định dạng ngày giờ hợp lệ (thêm số giây nếu thiếu)
+    const formattedTime = apptTime.value + ':00'; // Thêm ':00' để tương thích với input datetime-local
 
     loading.value = true;
     try {
@@ -81,7 +81,7 @@ const onSubmit = async () => {
         });
         
         showSuccessToast('Đặt lịch thành công!');
-        router.push('/history'); // Or maybe a dedicated Appointments list? For MVP use HistoryScreen if updated.
+        router.push('/history'); // Điều hướng về trang Lịch sử để người dùng theo dõi
     } catch (error) {
         console.error(error);
         if (error.response && error.response.data) {

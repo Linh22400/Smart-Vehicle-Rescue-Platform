@@ -10,7 +10,7 @@
         <div v-if="loadingSOS" class="hst-loading">Đang tải...</div>
         <van-empty v-if="!loadingSOS && sosBookings.length === 0"
           image="/empty.png" description="Chưa có chuyến cứu hộ nào" class="hst-empty" />
-        <!-- Search & Filter -->
+        <!-- Ô tìm kiếm và lọc -->
         <div class="filter-bar">
           <van-field v-model="searchSOS" placeholder="Tìm kiếm..." clearable left-icon="search" size="small" />
           <div class="filter-pills">
@@ -57,10 +57,10 @@
               <van-button v-if="item.status==='IN_PROGRESS'" size="mini" type="warning" plain round disabled>
                 <span style="display:flex;align-items:center;gap:4px"><van-icon name="setting-o" /> Đang sửa</span>
               </van-button>
-              <!-- Chat button for active SOS -->
+              <!-- Nút chat cho tiến trình SOS -->
               <van-button v-if="['ACCEPTED','ON_THE_WAY','IN_PROGRESS'].includes(item.status)" 
                 size="mini" type="primary" plain round icon="chat-o" @click="openChat(item)" style="margin-left:4px">Chat</van-button>
-              <!-- Payment button -->
+              <!-- Nút thanh toán -->
               <van-button v-if="item.status==='COMPLETED' && item.payment_status==='UNPAID'" 
                 size="mini" type="success" round @click="openPayment(item)">
                 <span style="display:flex;align-items:center;gap:4px">Thanh toán {{ formatCost(item.repair_cost) }}</span>
@@ -75,9 +75,14 @@
                 size="mini" type="primary" plain round @click="openSOSRating(item)">
                 <span style="display:flex;align-items:center;gap:4px"><van-icon name="star-o" /> Đánh giá</span>
               </van-button>
-              <span v-if="item.status==='COMPLETED' && item.has_sos_review" class="rated-badge">
-                <van-icon name="success" /> Đã đánh giá
-              </span>
+              <van-button v-if="item.status==='COMPLETED' && item.has_sos_review" class="rated-badge" size="mini" type="default" plain round disabled>
+                <span style="display:flex;align-items:center;gap:4px"><van-icon name="success" /> Đã đánh giá</span>
+              </van-button>
+              <!-- Nút báo cáo khiếu nại (SOS) -->
+              <van-button v-if="['COMPLETED', 'CANCELLED'].includes(item.status)" 
+                size="mini" type="danger" plain round @click="openComplaint(item, 'SOS')" style="margin-left:auto">
+                <span style="display:flex;align-items:center;gap:4px"><van-icon name="warning-o" /> Báo cáo</span>
+              </van-button>
             </div>
           </div>
         </div>
@@ -88,7 +93,7 @@
         <van-empty v-if="!loadingAppt && appointments.length === 0"
           description="Chưa có lịch hẹn nào" class="hst-empty" />
 
-        <!-- Search & Filter -->
+        <!-- Ô tìm kiếm và lọc -->
         <div class="filter-bar">
           <van-field v-model="searchAppt" placeholder="Tìm kiếm..." clearable left-icon="search" size="small" />
           <div class="filter-pills">
@@ -125,7 +130,7 @@
             <div class="hst-footer">
               <van-button v-if="appt.status==='PENDING'||appt.status==='CONFIRMED'"
                 size="mini" type="danger" plain round @click="cancelBooking(appt.id,'APPT')">Hủy</van-button>
-              <!-- Appointment Payment -->
+              <!-- Nút thanh toán Lịch hẹn -->
               <van-button v-if="appt.status==='COMPLETED' && appt.payment_status==='UNPAID' && appt.service_details"
                 size="mini" type="success" round @click="openApptPayment(appt)">
                 <span style="display:flex;align-items:center;gap:4px">Thanh toán {{ formatCost(appt.service_details.price) }}</span>
@@ -140,21 +145,26 @@
                 size="mini" type="primary" plain round @click="openRating(appt)">
                 <span style="display:flex;align-items:center;gap:4px"><van-icon name="star-o" /> Đánh giá</span>
               </van-button>
-              <span v-if="appt.status==='COMPLETED' && appt.has_review" class="rated-badge">
-                <van-icon name="success" /> Đã đánh giá
-              </span>
+              <van-button v-if="appt.status==='COMPLETED' && appt.has_review" class="rated-badge" size="mini" type="default" plain round disabled>
+                <span style="display:flex;align-items:center;gap:4px"><van-icon name="success" /> Đã đánh giá</span>
+              </van-button>
+              <!-- Nút báo cáo khiếu nại (APPT) -->
+              <van-button v-if="['COMPLETED', 'CANCELLED'].includes(appt.status)" 
+                size="mini" type="danger" plain round @click="openComplaint(appt, 'APPT')" style="margin-left:auto">
+                <span style="display:flex;align-items:center;gap:4px"><van-icon name="warning-o" /> Báo cáo</span>
+              </van-button>
             </div>
           </div>
         </div>
       </van-tab>
 
-      <!-- AI DIAGNOSIS HISTORY TAB -->
+      <!-- Tab Lịch Sử Chẩn Đoán AI -->
       <van-tab>
         <template #title><Bot :size="15" style="vertical-align:-2px;margin-right:4px" /> Chẩn đoán AI</template>
         <div v-if="loadingAI" class="text-center p-4">Đang tải...</div>
         <van-empty v-if="!loadingAI && aiReports.length === 0" description="Chưa có lịch sử chẩn đoán nào" />
 
-        <!-- Cleanup button -->
+        <!-- Nút xóa lịch sử -->
         <div v-if="aiReports.length > 0" class="cleanup-bar">
           <span class="cleanup-info">{{ aiReports.length }} báo cáo</span>
           <van-button size="mini" plain type="warning" @click="cleanupOldReports">Xóa &gt; 30 ngày</van-button>
@@ -162,7 +172,7 @@
 
         <div class="ai-history-list">
           <div v-for="r in aiReports" :key="r.id" class="ai-history-card">
-            <!-- Header -->
+            <!-- Phần thông tin đầu -->
             <div class="aih-header">
               <div class="aih-strip" :class="'aih-' + getSeverityKey(r.severity)"></div>
               <div class="aih-meta">
@@ -173,12 +183,12 @@
                 </span>
                 <span class="aih-date">{{ formatDate(r.created_at) }}</span>
               </div>
-              <!-- Modernized Drive Badge -->
+              <!-- Huy hiệu trạng thái -->
               <span class="aih-badge" :class="r.can_drive ? 'badge-safe' : 'badge-danger'">
                 {{ r.can_drive ? 'Lái được' : 'Không lái' }}
               </span>
             </div>
-            <!-- Detail row -->
+            <!-- Dòng thông tin chi tiết -->
             <div class="aih-detail">{{ r.details }}</div>
             <div class="aih-footer">
               <span class="aih-price">{{ r.estimated_price ? `${parseInt(r.estimated_price.replace(/,/g, '')).toLocaleString('vi-VN')} VNĐ` : '' }}</span>
@@ -189,7 +199,7 @@
       </van-tab>
     </van-tabs>
 
-    <!-- RATING DIALOG - shared for both SOS and Appointment -->
+    <!-- DIALOG ĐÁNH GIÁ - Dùng chung cho SOS và Lịch hẹn -->
     <van-dialog v-model:show="showRating" title="Đánh giá Thợ" show-cancel-button @confirm="submitRating">
         <div class="rating-content">
             <p>Vui lòng đánh giá dịch vụ:</p>
@@ -207,7 +217,18 @@
         </div>
     </van-dialog>
 
-    <!-- TRACKING POPUP (Grab-style) -->
+    <!-- DIALOG KHIẾU NẠI (COMPLAINT) -->
+    <van-dialog v-model:show="showComplaint" title="Báo cáo Khiếu nại" show-cancel-button
+      confirm-button-text="Gửi Báo cáo" cancel-button-text="Hủy" @confirm="submitComplaint">
+      <div style="padding: 16px;">
+        <p style="font-size:13px; color:#666; margin-top:0;">Nếu bạn không hài lòng về chất lượng dịch vụ hoặc thái độ của thợ, vui lòng ghi rõ lý do để hệ thống xử lý.</p>
+        <van-field v-model="complaintReason" type="textarea" rows="4"
+          placeholder="Nhập chi tiết vấn đề bạn gặp phải (bắt buộc)..." maxlength="500" show-word-limit
+          style="border: 1px solid #eee; border-radius: 4px;" />
+      </div>
+    </van-dialog>
+
+    <!-- POPUP THEO DÕI THỢ (Giống Grab) -->
     <van-popup v-model:show="showTracking" position="bottom" :style="{ height: '85%' }" round @opened="initTrackingMap" @closed="stopTrackingPolling">
       <div class="tracking-header">
         <div class="tracking-title">
@@ -230,7 +251,7 @@
       </div>
     </van-popup>
 
-    <!-- PAYMENT POPUP -->
+    <!-- POPUP THANH TOÁN -->
     <van-popup v-model:show="showPayment" position="bottom" :style="{ height: '45%' }" round>
       <div class="payment-container">
         <h3 class="payment-title" style="display:flex;align-items:center;justify-content:center;gap:6px">
@@ -256,7 +277,7 @@
       </div>
     </van-popup>
 
-    <!-- VIETQR POPUP -->
+    <!-- POPUP VIETQR -->
     <van-popup v-model:show="showQR" position="center" :style="{ width: '85%', maxWidth: '400px', borderRadius: '12px', padding: '20px' }">
       <div v-if="qrUrl" style="text-align: center;">
         <h3 style="margin-top:0; font-size:18px; color: #1989fa;">Quét mã VietQR</h3>
@@ -275,7 +296,7 @@
       </div>
     </van-popup>
 
-    <!-- CANCEL REASON DIALOG -->
+    <!-- DIALOG LÝ DO HỦY ĐƠN -->
     <van-dialog v-model:show="showCancelDialog" title="Lý do hủy đơn" show-cancel-button
       confirm-button-text="Xác nhận hủy" cancel-button-text="Quay lại" @confirm="confirmCancel">
       <div style="padding: 16px;">
@@ -284,7 +305,7 @@
       </div>
     </van-dialog>
 
-    <!-- ORDER DETAIL POPUP -->
+    <!-- POPUP CHI TIẾT ĐƠN HÀNG -->
     <van-popup v-model:show="showOrderDetail" position="bottom" :style="{ height: '70%' }" round>
       <div v-if="detailItem" class="detail-container">
         <div class="detail-header">
@@ -345,7 +366,7 @@
       </div>
     </van-popup>
 
-    <!-- CHAT POPUP -->
+    <!-- POPUP CHAT -->
     <van-popup v-model:show="showChat" position="bottom" :style="{ height: '80%', display: 'flex', flexDirection: 'column' }" round>
       <div class="chat-header">
         <h3 style="margin:0; font-size:16px; display:flex; align-items:center; gap:6px;">
@@ -385,7 +406,7 @@ const appointments = ref([]);
 const loadingSOS = ref(true);
 const loadingAppt = ref(true);
 
-// Search & Filter
+// ── Tìm kiếm & Lọc ──
 const searchSOS = ref('');
 const filterSOS = ref('');
 const searchAppt = ref('');
@@ -423,7 +444,7 @@ const filteredAppt = computed(() => {
     return list;
 });
 
-// AI History State
+// ── Trạng thái Lịch sử AI ──
 const aiReports = ref([]);
 const loadingAI = ref(false);
 
@@ -461,15 +482,15 @@ const cleanupOldReports = async () => {
     }).catch(() => {});
 };
 
-// Rating State
+// ── Trạng thái Đánh giá ──
 const showRating = ref(false);
 const ratingValue = ref(5);
 const ratingComment = ref('');
 const selectedAppt = ref(null);
-const sosRatingMode = ref(false); // true = rating SOS, false = rating Appointment
+const sosRatingMode = ref(false); // true = đánh giá SOS, false = đánh giá Lịch hẹn
 
 onMounted(async () => {
-    // Fetch SOS
+    // Tải danh sách SOS
     try {
         const res = await axios.get('/api/bookings/history/');
         sosBookings.value = res.data;
@@ -479,10 +500,10 @@ onMounted(async () => {
         loadingSOS.value = false;
     }
 
-    // Fetch AI Reports (non-blocking – runs in parallel)
+    // Tải báo cáo AI (chạy nền không làm chậm UI)
     loadAIReports();
 
-    // Fetch Appointments
+    // Tải Lịch hẹn bảo dưỡng
     try {
         const res = await axios.get('/api/services/history/');
         appointments.value = res.data;
@@ -551,7 +572,7 @@ const submitRating = async () => {
         };
         if (sosRatingMode.value) {
             payload.appointment   = null;
-            payload.sos_booking_id = selectedAppt.value.id;   // link review to specific SOS booking
+            payload.sos_booking_id = selectedAppt.value.id;   // Liên kết đánh giá với đơn SOS cụ thể
         } else {
             payload.appointment = selectedAppt.value.id;
         }
@@ -560,7 +581,7 @@ const submitRating = async () => {
         showSuccessToast('Cảm ơn bạn đã đánh giá!');
         showRating.value = false;
 
-        // Refresh the relevant list from server so has_sos_review / has_review reflects truth
+        // Cập nhật lại danh sách để phản ánh trạng thái đã đánh giá
         if (sosRatingMode.value) {
             const res = await axios.get('/api/bookings/history/');
             sosBookings.value = res.data;
@@ -581,7 +602,7 @@ const submitRating = async () => {
 
 import { showConfirmDialog, showToast, showSuccessToast, showFailToast } from 'vant';
 
-// ── Chat Logic ──
+// ── Logic Chat ──
 const showChat = ref(false);
 const chatMessages = ref([]);
 const newChatMessage = ref('');
@@ -624,7 +645,7 @@ const sendChat = async () => {
 
 const startChatPolling = () => {
     if (chatPollInterval) return;
-    chatPollInterval = setInterval(fetchChats, 3000); // poll every 3 seconds
+    chatPollInterval = setInterval(fetchChats, 3000); // gọi hàm mỗi 3 giây
 };
 
 const stopChatPolling = () => {
@@ -647,7 +668,7 @@ const closeChat = () => {
     activeChatBookingId.value = null;
 };
 
-// ── CANCEL WITH REASON ──
+// ── HỦY ĐƠN CÓ LÝ DO ──
 const showCancelDialog = ref(false);
 const cancelReasonInput = ref('');
 const cancellingId = ref(null);
@@ -685,7 +706,50 @@ const confirmCancel = async () => {
     }
 };
 
-// ── ORDER DETAIL POPUP ──
+// ── KHIẾU NẠI (COMPLAINTS) ──
+const showComplaint = ref(false);
+const complaintReason = ref('');
+const complaintTargetId = ref(null);
+const complaintTargetType = ref('SOS'); // 'SOS' or 'APPT'
+const complaintMechanicId = ref(null);
+
+const openComplaint = (item, type) => {
+    complaintTargetId.value = item.id;
+    complaintTargetType.value = type;
+    complaintMechanicId.value = item.mechanic;
+    complaintReason.value = '';
+    showComplaint.value = true;
+};
+
+const submitComplaint = async () => {
+    if (!complaintReason.value.trim()) {
+        showFailToast('Vui lòng nhập lý do khiếu nại');
+        return;
+    }
+    try {
+        const payload = {
+            reason: complaintReason.value.trim(),
+            mechanic: complaintMechanicId.value
+        };
+        // Chỉ truyền booking ID nếu là SOS (vì API Complaint đang liên kết booking là SOS)
+        if (complaintTargetType.value === 'SOS') {
+            payload.booking = complaintTargetId.value;
+        }
+
+        await axios.post('/api/bookings/complaints/', payload);
+        showSuccessToast('Đã gửi báo cáo cho Admin');
+        showComplaint.value = false;
+    } catch (e) {
+        if (e.response && e.response.data && e.response.data.error) {
+            showFailToast('Lỗi: ' + e.response.data.error);
+        } else {
+            showFailToast('Lỗi gửi báo cáo');
+        }
+    }
+};
+
+
+// ── POPUP CHI TIẾT ĐƠN ──
 const showOrderDetail = ref(false);
 const detailItem = ref(null);
 
@@ -703,7 +767,7 @@ const detailTagType = computed(() => {
     return 'primary';
 });
 
-// ── PAYMENT LOGIC ──
+// ── LOGIC THANH TOÁN ──
 const showPayment = ref(false);
 const paymentItem = ref(null);
 const selectedPaymentMethod = ref('');
@@ -750,7 +814,7 @@ const confirmPayment = async () => {
             return;
         }
 
-        const bankId = bankInfo.bank_name.trim(); // e.g., 'MB', 'VCB'
+        const bankId = bankInfo.bank_name.trim(); // VD: 'MB', 'VCB'
         const accountNo = bankInfo.bank_account_no.trim();
         const accountName = bankInfo.bank_account_name ? bankInfo.bank_account_name.trim() : '';
         const addInfo = `Thanh toan don ${paymentType.value} ${paymentItem.value.id}`;
@@ -794,7 +858,7 @@ const processPaymentAPI = async (method) => {
     }
 };
 
-// ── REAL-TIME TRACKING LOGIC ──
+// ── LOGIC THEO DÕI THỜI GIAN THỰC ──
 const showTracking = ref(false);
 const trackingBookingId = ref(null);
 const trackingStatus = ref('pending');
@@ -803,10 +867,10 @@ const trackingMechanicName = ref('');
 let trackingMap = null;
 let trackingMechMarker = null;
 let trackingCustMarker = null;
-let trackingRoute = null;       // Routing control (created once)
-let trackingPolyline = null;    // Lightweight polyline for smooth updates
+let trackingRoute = null;       // Controller cho map route (tạo một lần)
+let trackingPolyline = null;    // Polyline nhẹ để cập nhật mượt (chưa dùng)
 let trackingInterval = null;
-let isFirstTrackingLoad = true; // Only fitBounds on first load
+let isFirstTrackingLoad = true; // Chỉ chạy fitBounds vào lần tải map đầu tiên
 
 const statusTextMap = {
     'PENDING': 'Chờ nhận đơn',
@@ -825,7 +889,7 @@ const openTracking = (item) => {
     showTracking.value = true;
 };
 
-// Icon definitions (reusable, avoid re-creating every cycle)
+// Cấu hình Icon (Có thể tái sử dụng, tránh tạo lại nhiều lần)
 const custIcon = L.icon({
     iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
@@ -871,14 +935,14 @@ const fetchTrackingData = async () => {
             trackingMechanicName.value = data.mechanic.username;
         }
 
-        // ── Customer marker (create once) ──
+        // ── Marker Khách hàng (Tạo 1 lần) ──
         if (custLat && custLon && !trackingCustMarker) {
             trackingCustMarker = L.marker([custLat, custLon], { icon: custIcon })
                 .addTo(trackingMap)
                 .bindPopup('📍 Vị trí của bạn');
         }
 
-        // ── Mechanic marker (create once, then smoothly move) ──
+        // ── Marker Thợ sửa (Tạo 1 lần, sau đó chỉ cập nhật di chuyển) ──
         if (mechLat && mechLon) {
             if (!trackingMechMarker) {
                 trackingMechMarker = L.marker([mechLat, mechLon], { icon: mechIcon })
@@ -888,10 +952,10 @@ const fetchTrackingData = async () => {
                 trackingMechMarker.setLatLng([mechLat, mechLon]);
             }
 
-            // ── Route: create Routing control ONCE on first load, then update polyline ──
+            // ── Lộ trình: Tạo control Routing MỘT LẦN ở lần tải đầu, sau đó chỉ cập nhật polyline ──
             if (custLat && custLon) {
                 if (isFirstTrackingLoad) {
-                    // First load: create full Routing control + fitBounds
+                    // Tải lần đầu: khởi tạo lại control Routing + fitBounds
                     if (trackingRoute) {
                         trackingMap.removeControl(trackingRoute);
                         trackingRoute = null;
@@ -910,7 +974,7 @@ const fetchTrackingData = async () => {
                         show: false
                     }).addTo(trackingMap);
 
-                    // Fit bounds only on first load
+                    // Chỉ Fit bounds trên màn hình ở lần tải đầu tiên
                     const group = new L.featureGroup([
                         L.marker([mechLat, mechLon]),
                         L.marker([custLat, custLon])
@@ -918,7 +982,7 @@ const fetchTrackingData = async () => {
                     trackingMap.fitBounds(group.getBounds(), { padding: [50, 50] });
                     isFirstTrackingLoad = false;
                 } else {
-                    // Subsequent polls: just update waypoints silently (no rebuild, no zoom reset)
+                    // Ở những lần load sau: Chỉ cần cập nhật lộ trình trong âm thầm (không làm lại hay tự zoom)
                     if (trackingRoute) {
                         trackingRoute.setWaypoints([
                             L.latLng(mechLat, mechLon),
@@ -929,7 +993,7 @@ const fetchTrackingData = async () => {
             }
         }
 
-        // If booking completed, stop polling and refresh history
+        // Nếu đơn đã xong, dừng polling tracking và tải lại lịch sử
         if (data.status === 'COMPLETED' || data.status === 'CANCELLED') {
             stopTrackingPolling();
             const refreshRes = await axios.get('/api/bookings/history/');
@@ -951,7 +1015,7 @@ const stopTrackingPolling = () => {
         clearInterval(trackingInterval);
         trackingInterval = null;
     }
-    // Clean up map layers for next opening
+    // Dọn dẹp các lớp map để dùng cho lần mở tiếp theo
     if (trackingMechMarker) { trackingMap?.removeLayer(trackingMechMarker); trackingMechMarker = null; }
     if (trackingCustMarker) { trackingMap?.removeLayer(trackingCustMarker); trackingCustMarker = null; }
     if (trackingRoute) { trackingMap?.removeControl(trackingRoute); trackingRoute = null; }
@@ -976,7 +1040,7 @@ onUnmounted(() => {
 }
 .mt-2 { margin-top: 10px; margin-bottom: 10px; }
 .text-center { text-align: center; }
-/* ─── Page ─── */
+/* ─── Trang chính ─── */
 .history-page {
   min-height: 100vh;
   background: #f3f4f8;
@@ -984,7 +1048,7 @@ onUnmounted(() => {
   padding-bottom: 70px;
 }
 
-/* Hero */
+/* Khối trên cùng */
 .history-hero {
   display: flex;
   align-items: center;
@@ -998,10 +1062,10 @@ onUnmounted(() => {
   font-weight: 700;
 }
 
-/* Tabs */
+/* Các thẻ tab */
 :deep(.van-tabs__wrap) { background: #fff; }
 
-/* ─── History card ─── */
+/* ─── Thẻ Lịch sử ─── */
 .hst-loading { text-align: center; padding: 28px 16px; color: #aaa; font-size: 14px; }
 .hst-empty   { padding: 32px 0; }
 .hst-list    { padding: 10px 12px 10px; }
@@ -1033,7 +1097,7 @@ onUnmounted(() => {
 .hst-title { font-size: 14px; font-weight: 700; color: #1a1a2e; }
 .hst-date  { font-size: 11px; color: #aaa; margin-top: 2px; }
 
-/* Chips */
+/* Nhãn */
 .hst-chip {
   font-size: 11px; font-weight: 700;
   padding: 3px 10px; border-radius: 20px;
@@ -1045,7 +1109,7 @@ onUnmounted(() => {
 .chip-completed { background: #d4fae4; color: #1a7a4a; }
 .chip-cancelled { background: #f3f4f8; color: #aaa; }
 
-/* Body rows */
+/* Hàng mô tả bên trong */
 .hst-body { padding: 8px 14px 4px; }
 .hst-row {
   display: flex;
@@ -1056,7 +1120,7 @@ onUnmounted(() => {
   margin-bottom: 5px;
 }
 
-/* Footer */
+/* Phần thao tác dưới cùng */
 .hst-footer {
   display: flex;
   justify-content: flex-end;
@@ -1072,7 +1136,7 @@ onUnmounted(() => {
   align-self: center;
 }
 
-/* ── AI History Tab ── */
+/* ── Tab Lịch Sử AI ── */
 .cleanup-bar {
     display: flex;
     align-items: center;
@@ -1104,7 +1168,7 @@ onUnmounted(() => {
     gap: 12px;
     padding: 16px;
 }
-/* Severity left strip - now a ring or soft border */
+/* Thanh đánh dấu mức độ dải màu gradient */
 .aih-strip {
     width: 6px;
     height: 44px;
@@ -1114,7 +1178,7 @@ onUnmounted(() => {
 .aih-low    { background: linear-gradient(180deg, #10b981, #059669); }
 .aih-medium { background: linear-gradient(180deg, #fbbf24, #d97706); }
 .aih-high   { background: linear-gradient(180deg, #ef4444, #dc2626); }
-.aih-critical { background: linear-gradient(180deg, #65a30d, #4d7c0f); } /* Dark green or dark red depending on intended design */
+.aih-critical { background: linear-gradient(180deg, #65a30d, #4d7c0f); } /* Xanh đậm hoặc đỏ tuỳ thiết kế */
 
 .aih-meta { flex: 1; min-width: 0; }
 .aih-diagnosis {
@@ -1130,7 +1194,7 @@ onUnmounted(() => {
 }
 .aih-date { display: block; font-size: 11px; color: #999; margin-top: 4px; font-weight: 500; }
 
-/* Custom Badge Setup */
+/* Thiết lập nhãn Badge tùy chỉnh */
 .aih-badge {
     flex-shrink: 0;
     padding: 4px 12px;
@@ -1168,7 +1232,7 @@ onUnmounted(() => {
 }
 .aih-price { font-size: 14px; font-weight: 700; color: #2563eb; }
 
-/* ── Tracking Popup (Grab-style) ── */
+/* ── Popup Theo dõi Thợ (Giống Grab) ── */
 .tracking-header {
   display: flex;
   justify-content: space-between;
@@ -1224,11 +1288,11 @@ onUnmounted(() => {
 }
 .tracking-badge { }
 
-/* Status chip colors for new statuses */
+/* Màu cho nhãn trạng thái mới */
 .chip-on_the_way { background: #dbeafe; color: #2563eb; }
 .chip-in_progress { background: #d4fae4; color: #07c160; }
 
-/* ── Payment Popup ── */
+/* ── Popup Thanh toán ── */
 .payment-container {
   padding: 24px 20px;
   text-align: center;
@@ -1281,7 +1345,7 @@ onUnmounted(() => {
   border-radius: 20px;
 }
 
-/* ── Order Detail Popup ── */
+/* ── Popup Chi tiết đơn hàng ── */
 .detail-container { padding: 0; }
 .detail-header {
   display: flex; justify-content: space-between; align-items: center;
@@ -1303,7 +1367,7 @@ onUnmounted(() => {
 
 .hst-card-header { cursor: pointer; }
 
-/* ── Filter Bar ── */
+/* ── Thanh Lọc ── */
 .filter-bar { padding: 10px 12px 4px; }
 .filter-bar .van-field { background: #f5f5f5; border-radius: 10px; margin-bottom: 8px; }
 .filter-pills { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -1314,7 +1378,7 @@ onUnmounted(() => {
 }
 .pill.active { background: #2563eb; color: #fff; }
 
-/* ─── Modern Buttons Override ─── */
+/* ─── Ghi đè cấu hình nút (Modern) ─── */
 :deep(.van-button) {
   border-radius: 8px;
   font-weight: 600;
@@ -1345,7 +1409,7 @@ onUnmounted(() => {
   box-shadow: 0 4px 10px rgba(244, 63, 94, 0.25);
   color: #fff !important;
 }
-/* Plain buttons styling */
+/* Cấu hình các nút dạng plain */
 :deep(.van-button--primary.van-button--plain) {
   background: #eff6ff !important;
   color: #2563eb !important;
@@ -1363,7 +1427,7 @@ onUnmounted(() => {
   color: #e11d48 !important;
 }
 
-/* CHAT POPUP */
+/* Popup CHAT */
 .chat-header {
   padding: 16px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; background: #fff; border-radius: 20px 20px 0 0;
 }

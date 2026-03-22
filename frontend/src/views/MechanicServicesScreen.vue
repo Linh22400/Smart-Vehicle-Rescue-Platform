@@ -1,6 +1,6 @@
 <template>
   <div class="mechanic-services-screen">
-    <!-- Header -->
+    <!-- Phần đầu -->
     <van-nav-bar
       title="Quản Lý Dịch Vụ"
       left-arrow
@@ -147,7 +147,7 @@ const saveService = async () => {
         return;
     }
     
-    // transform data
+    // chuẩn hóa dữ liệu
     const payload = {
         name: form.value.name,
         price: parseInt(form.value.price),
@@ -199,7 +199,7 @@ const confirmDelete = (id) => {
   padding-bottom: 80px;
 }
 
-/* Header Gradient */
+/* Gradient thanh điều hướng */
 :deep(.custom-nav-bar) {
   background: linear-gradient(135deg, #1a6fdf, #4f46e5) !important;
 }
@@ -210,7 +210,7 @@ const confirmDelete = (id) => {
   padding: 16px;
 }
 
-/* Cards */
+/* Danh sách thẻ dịch vụ */
 .ms-list {
   display: flex;
   flex-direction: column;
@@ -263,7 +263,7 @@ const confirmDelete = (id) => {
   gap: 4px;
 }
 
-/* Footer Actions */
+/* Nút thao tác dưới cùng */
 .ms-card-footer {
   display: flex;
   justify-content: flex-end;
@@ -279,10 +279,10 @@ const confirmDelete = (id) => {
   font-weight: 600;
 }
 
-/* FAB */
+/* Nút nổi (Floating Action Button) */
 .fab-container {
   position: fixed;
-  bottom: 20px;
+  bottom: 80px;
   left: 0;
   right: 0;
   display: flex;
@@ -300,7 +300,7 @@ const confirmDelete = (id) => {
   border: none !important;
 }
 
-/* Dialog Form Setup */
+/* Cấu hình form trong Dialog */
 .dialog-form {
   padding: 20px 0;
 }

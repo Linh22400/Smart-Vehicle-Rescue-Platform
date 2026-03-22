@@ -6,7 +6,7 @@
       </template>
     </van-nav-bar>
 
-    <!-- Availability Banner -->
+    <!-- Banner Trạng thái -->
     <van-notice-bar
       :text="isAvailable ? 'Bạn đang SẴN SÀNG nhận đơn' : 'Bạn đang NGHỆ - Không nhận đơn'"
       :color="isAvailable ? '#07c160' : '#ee0a24'"
@@ -47,7 +47,7 @@
         <van-tab title="Thống Kê" name="STATS"></van-tab>
     </van-tabs>
 
-    <!-- SOS TAB CONTENT -->
+    <!-- NỘI DUNG TAB SOS -->
     <div v-if="activeTab === 'SOS'" class="p-2">
          <van-tabs v-model:active="sosSubTab">
             <van-tab title="Mới" name="PENDING"></van-tab>
@@ -84,23 +84,26 @@
                 <van-button v-if="item.status === 'PENDING'" size="small" type="primary" @click="updateSOSStatus(item.id, 'ACCEPTED')">Nhận Đơn</van-button>
                 <div v-if="item.status === 'ACCEPTED'">
                     <van-button size="small" type="primary" plain icon="chat-o" @click="openChat(item)" style="margin-right:4px">Chat</van-button>
-                    <van-button size="small" type="warning" plain @click="viewRoute(item)">Chỉ Đường</van-button>
-                    <van-button size="small" type="primary" @click="updateSOSStatus(item.id, 'ON_THE_WAY')">Bắt Đầu Đi</van-button>
+                    <van-button size="small" type="warning" plain @click="viewRoute(item)" style="margin-right:4px">Đường</van-button>
+                    <van-button size="small" type="primary" @click="updateSOSStatus(item.id, 'ON_THE_WAY')" style="margin-right:4px">Đi</van-button>
+                    <van-button size="small" type="danger" plain @click="openComplaint(item, 'SOS')">Báo cáo</van-button>
                 </div>
                 <div v-if="item.status === 'ON_THE_WAY'">
                     <van-button size="small" type="primary" plain icon="chat-o" @click="openChat(item)" style="margin-right:4px">Chat</van-button>
-                    <van-button size="small" type="warning" plain @click="viewRoute(item)">Chỉ Đường</van-button>
-                    <van-button size="small" type="primary" @click="updateSOSStatus(item.id, 'IN_PROGRESS')">Đã Tới/Đang Sửa</van-button>
+                    <van-button size="small" type="warning" plain @click="viewRoute(item)" style="margin-right:4px">Đường</van-button>
+                    <van-button size="small" type="primary" @click="updateSOSStatus(item.id, 'IN_PROGRESS')" style="margin-right:4px">Tới</van-button>
+                    <van-button size="small" type="danger" plain @click="openComplaint(item, 'SOS')">Báo cáo</van-button>
                 </div>
                 <div v-if="item.status === 'IN_PROGRESS'">
                     <van-button size="small" type="primary" plain icon="chat-o" @click="openChat(item)" style="margin-right:4px">Chat</van-button>
-                    <van-button size="small" type="success" @click="openCostDialog(item)">Hoàn Thành & Tính Tiền</van-button>
+                    <van-button size="small" type="success" @click="openCostDialog(item)" style="margin-right:4px">Tính Tiền</van-button>
+                    <van-button size="small" type="danger" plain @click="openComplaint(item, 'SOS')">Báo cáo</van-button>
                 </div>
             </template>
         </van-card>
     </div>
 
-    <!-- APPOINTMENT TAB CONTENT -->
+    <!-- NỘI DUNG TAB LỊCH HẸN -->
     <div v-if="activeTab === 'APPT'" class="p-2">
          <div v-if="loadingAppt" class="text-center p-4">Đang tải lịch hẹn...</div>
          <van-empty v-if="!loadingAppt && appointments.length === 0" description="Không có lịch hẹn nào" />
@@ -129,14 +132,15 @@
             <template #footer>
                 <van-button v-if="item.status === 'PENDING'" size="small" type="primary" @click="updateApptStatus(item.id, 'CONFIRMED')">Xác Nhận</van-button>
                 <div v-if="item.status === 'CONFIRMED'">
-                     <van-button size="small" type="success" @click="updateApptStatus(item.id, 'COMPLETED')">Hoàn Thành</van-button>
-                     <van-button size="small" type="danger" @click="updateApptStatus(item.id, 'CANCELLED')">Hủy</van-button>
+                     <van-button size="small" type="success" @click="updateApptStatus(item.id, 'COMPLETED')" style="margin-right:4px">Hoàn Thành</van-button>
+                     <van-button size="small" type="danger" @click="updateApptStatus(item.id, 'CANCELLED')" style="margin-right:4px">Hủy</van-button>
+                     <van-button size="small" type="danger" plain @click="openComplaint(item, 'APPT')">Báo cáo</van-button>
                 </div>
             </template>
         </van-card>
     </div>
 
-    <!-- PAYMENT TAB CONTENT -->
+    <!-- NỘI DUNG TAB THANH TOÁN -->
     <div v-if="activeTab === 'PAYMENT'" class="p-2">
         <van-empty v-if="pendingPayments.length === 0" description="Không có khoản nào chờ thanh toán" />
         <van-card v-for="item in pendingPayments" :key="item.type + item.id"
@@ -159,79 +163,20 @@
                 <div class="mt-1" style="color:#ee0a24">Chờ bạn xác nhận tiền vào TK Ngân hàng</div>
             </template>
             <template #footer>
-                <van-button size="small" type="success" @click="verifyPayment(item)">Xác nhận Đã Nhận Tiền</van-button>
+                <div style="text-align: right;">
+                    <van-button size="small" type="danger" plain @click="rejectPayment(item)" style="margin-right: 8px;">Chưa nhận được</van-button>
+                    <van-button size="small" type="success" @click="verifyPayment(item)">Đã Nhận Tiền</van-button>
+                </div>
             </template>
         </van-card>
     </div>
 
-    <!-- STATS TAB CONTENT -->
-    <div v-if="activeTab === 'STATS'" class="p-2">
-        <div v-if="loadingStats" class="text-center p-4">Đang tính toán...</div>
-        <div v-else>
-            <div class="revenue-card total">
-                <h3>Tổng Doanh Thu</h3>
-                <div class="price">{{ formatPrice(stats.total_revenue) }}</div>
-            </div>
-
-            <van-grid :column-num="2" class="mt-2">
-                <van-grid-item icon="gold-coin-o" text="SOS" >
-                    <template #icon>
-                        <van-icon name="warning-o" color="#ff976a" size="24" />
-                    </template>
-                    <div class="stat-text">
-                        <div>{{ stats.sos_stats?.count || 0 }} đơn</div>
-                        <div class="mini-price">{{ formatPrice(stats.sos_stats?.revenue) }}</div>
-                    </div>
-                </van-grid-item>
-                <van-grid-item icon="shop-o" text="Bảo Dưỡng">
-                     <template #icon>
-                        <van-icon name="shop-o" color="#1989fa" size="24" />
-                    </template>
-                     <div class="stat-text">
-                        <div>{{ stats.service_stats?.count || 0 }} đơn</div>
-                        <div class="mini-price">{{ formatPrice(stats.service_stats?.revenue) }}</div>
-                    </div>
-                </van-grid-item>
-            </van-grid>
-
-            <!-- Weekly / Monthly breakdown -->
-            <div class="stats-section mt-3">
-                <h4 class="stats-subtitle">📅 Tuần này</h4>
-                <div class="stats-row">
-                    <div class="stats-mini">
-                        <div class="sm-label">SOS</div>
-                        <div class="sm-count">{{ stats.sos_stats?.week?.count || 0 }} đơn</div>
-                        <div class="sm-price">{{ formatPrice(stats.sos_stats?.week?.revenue) }}</div>
-                    </div>
-                    <div class="stats-mini">
-                        <div class="sm-label">Bảo dưỡng</div>
-                        <div class="sm-count">{{ stats.service_stats?.week?.count || 0 }} đơn</div>
-                        <div class="sm-price">{{ formatPrice(stats.service_stats?.week?.revenue) }}</div>
-                    </div>
-                </div>
-
-                <h4 class="stats-subtitle">📆 Tháng này</h4>
-                <div class="stats-row">
-                    <div class="stats-mini">
-                        <div class="sm-label">SOS</div>
-                        <div class="sm-count">{{ stats.sos_stats?.month?.count || 0 }} đơn</div>
-                        <div class="sm-price">{{ formatPrice(stats.sos_stats?.month?.revenue) }}</div>
-                    </div>
-                    <div class="stats-mini">
-                        <div class="sm-label">Bảo dưỡng</div>
-                        <div class="sm-count">{{ stats.service_stats?.month?.count || 0 }} đơn</div>
-                        <div class="sm-price">{{ formatPrice(stats.service_stats?.month?.revenue) }}</div>
-                    </div>
-                </div>
-
-                <div v-if="stats.cancelled > 0" class="cancelled-stat" style="display:flex;align-items:center;justify-content:center;gap:4px">
-                    <van-icon name="close" color="#ee0a24" /> {{ stats.cancelled }} đơn đã hủy
-                </div>
-            </div>
-        </div>
+    <!-- NỘI DUNG TAB THỐNG KÊ -->
+    <div v-if="activeTab === 'STATS'">
+        <StatsCharts />
     </div>
 
-    <!-- MAP ROUTING DIALOG -->
+    <!-- DIALOG CHỈ ĐƯỜNG TRÊN BẢN ĐỒ -->
     <van-popup v-model:show="showMap" position="bottom" :style="{ height: '80%' }" @opened="initMap">
         <div class="map-header">
             <span class="title">Bản Đồ Chỉ Đường</span>
@@ -240,7 +185,7 @@
         <div id="mechanic-map" style="width: 100%; height: calc(100% - 40px);"></div>
     </van-popup>
 
-    <!-- REPAIR COST DIALOG -->
+    <!-- DIALOG NHẬP CHI PHÍ SỬA CHỮA -->
     <van-dialog v-model:show="showCostDialog" title="Nhập Chi Phí Sửa Chữa" show-cancel-button 
       confirm-button-text="Hoàn Thành" cancel-button-text="Hủy" @confirm="submitCompletion">
       <div style="padding: 20px;">
@@ -252,7 +197,18 @@
       </div>
     </van-dialog>
 
-    <!-- CHAT POPUP -->
+    <!-- DIALOG KHIẾU NẠI CHO THỢ -->
+    <van-dialog v-model:show="showComplaint" title="Báo Cáo Khách Hàng" show-cancel-button
+      confirm-button-text="Gửi Báo Cáo" cancel-button-text="Hủy" @confirm="submitComplaint">
+      <div style="padding: 16px;">
+        <p style="font-size:13px; color:#666; margin-top:0;">Nếu khách hàng có dấu hiệu bom hàng, boom xe, chửi bới, báo cáo sai sự thật, hãy ghi rõ để hệ thống xử lý.</p>
+        <van-field v-model="complaintReason" type="textarea" rows="4"
+          placeholder="Nhập lý do báo cáo (bắt buộc)..." maxlength="500" show-word-limit
+          style="border: 1px solid #eee; border-radius: 4px;" />
+      </div>
+    </van-dialog>
+
+    <!-- POPUP CHAT -->
     <van-popup v-model:show="showChat" position="bottom" :style="{ height: '80%', display: 'flex', flexDirection: 'column' }" round>
       <div class="chat-header">
         <h3 style="margin:0; font-size:16px; display:flex; align-items:center; gap:6px;">
@@ -285,6 +241,7 @@ import { showToast, showImagePreview } from 'vant';
 import L from 'leaflet';
 import 'leaflet-routing-machine';
 import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
+import StatsCharts from '../components/StatsCharts.vue';
 
 const activeTab = ref('SOS');
 const sosSubTab = ref('PENDING');
@@ -300,7 +257,7 @@ const formatOrderId = (id, prefix) => {
     return `${prefix}-${String(id).padStart(5, '0')}`;
 };
 
-// Availability state
+// Trạng thái khả dụng (nhận đơn)
 const isAvailable = ref(true);
 onMounted(() => {
     const userStr = localStorage.getItem('user');
@@ -317,7 +274,7 @@ onMounted(() => {
 const updateAvailability = async (val) => {
     try {
         const res = await axios.post('/api/users/mechanic/status/', { is_available: val });
-        // Update localStorage
+        // Cập nhật localStorage
         const userStr = localStorage.getItem('user');
         if (userStr) {
             const user = JSON.parse(userStr);
@@ -327,11 +284,11 @@ const updateAvailability = async (val) => {
         showToast(val ? 'Đã bật nhận đơn' : 'Đã tắt nhận đơn');
     } catch(e) {
         showToast('Lỗi cập nhật trạng thái');
-        isAvailable.value = !val; // revert
+        isAvailable.value = !val; // Hoàn tác thao tác công tắc
     }
 }
 
-// Map State
+// Trạng thái Bản đồ
 const showMap = ref(false);
 let mapInstance = null;
 let routingControl = null;
@@ -379,7 +336,7 @@ const refreshData = () => {
     else fetchStats();
 }
 
-// Initial load + auto-poll for new SOS orders
+// Tải lần đầu + tự động kiểm tra định kỳ các đơn SOS mới
 let sosAutoRefresh = null;
 
 const pendingCount = computed(() => {
@@ -388,11 +345,11 @@ const pendingCount = computed(() => {
 
 onMounted(() => {
     refreshData();
-    // Request Browser Notification permission
+    // Yêu cầu quyền Thông báo từ trình duyệt
     if ('Notification' in window && Notification.permission === 'default') {
         Notification.requestPermission();
     }
-    // Auto-refresh SOS every 15 seconds for incoming orders
+    // Tự động làm mới SOS mỗi 15 giây để kiểm tra đơn mới
     sosAutoRefresh = setInterval(async () => {
         if (activeTab.value === 'SOS') {
             const prevCount = sosBookings.value.filter(b => b.status === 'PENDING').length;
@@ -449,15 +406,29 @@ const verifyPayment = async (item) => {
     }
 };
 
+const rejectPayment = async (item) => {
+    try {
+        const url = item.type === 'SOS' 
+            ? `/api/bookings/${item.id}/reject-payment/` 
+            : `/api/services/${item.id}/reject-payment/`;
+        await axios.post(url);
+        showToast('Đã thông báo Chưa nhận được tiền!');
+        fetchSOS();
+        fetchAppt();
+    } catch (e) {
+        showToast('Lỗi từ chối thanh toán');
+    }
+};
+
 const updateSOSStatus = async (id, newStatus) => {
     try {
         await axios.post(`/api/bookings/${id}/update-status/`, { status: newStatus });
         showToast('Cập nhật SOS thành công!');
-        // Start GPS sender when mechanic is ON_THE_WAY or IN_PROGRESS
+        // Bắt đầu gửi GPS khi thợ đang ĐANG ĐẾN hoặc ĐANG SỬA
         if (newStatus === 'ON_THE_WAY' || newStatus === 'IN_PROGRESS') {
             startGPSSender();
         }
-        // Stop GPS sender when booking is completed or cancelled
+        // Dừng gửi GPS khi hoàn thành đơn hoặc hủy bỏ
         if (newStatus === 'COMPLETED' || newStatus === 'CANCELLED') {
             stopGPSSender();
         }
@@ -467,7 +438,7 @@ const updateSOSStatus = async (id, newStatus) => {
     }
 }
 
-// ── Chat Logic ──
+// ── Logic Chat ──
 const showChat = ref(false);
 const chatMessages = ref([]);
 const newChatMessage = ref('');
@@ -510,7 +481,7 @@ const sendChat = async () => {
 
 const startChatPolling = () => {
     if (chatPollInterval) return;
-    chatPollInterval = setInterval(fetchChats, 3000); // poll every 3 seconds
+    chatPollInterval = setInterval(fetchChats, 3000); // gọi API mỗi 3 giây
 };
 
 const stopChatPolling = () => {
@@ -538,7 +509,7 @@ const previewImage = (url) => {
     showImagePreview([url]);
 };
 
-// ── Repair Cost Dialog ──
+// ── Dialog Nhập giá sửa chữa ──
 const showCostDialog = ref(false);
 const repairCostInput = ref('');
 const completingBookingId = ref(null);
@@ -566,15 +537,15 @@ const submitCompletion = async () => {
         showToast('Lỗi hoàn thành đơn');
     }
 };
-// ── GPS Real-time Location Sender ──
+// ── Gửi vị trí GPS thời gian thực ──
 let gpsWatchId = null;
 let gpsSendInterval = null;
 const currentGPS = ref({ lat: null, lon: null });
 
 const startGPSSender = () => {
-    if (gpsSendInterval) return; // already running
+    if (gpsSendInterval) return; // Đã đang gửi tọa độ rồi
 
-    // Watch position using HTML5 Geolocation
+    // Theo dõi vị trí sử dụng Geolocation của HTML5
     if (navigator.geolocation) {
         gpsWatchId = navigator.geolocation.watchPosition(
             (pos) => {
@@ -582,13 +553,13 @@ const startGPSSender = () => {
                 currentGPS.value.lon = pos.coords.longitude;
             },
             (err) => {
-                console.warn('GPS error:', err.message);
+                console.warn('Lỗi định vị GPS:', err.message);
             },
             { enableHighAccuracy: true, maximumAge: 5000 }
         );
     }
 
-    // Send location to server every 10 seconds
+    // Gửi vị trí tới server mỗi 10 giây
     gpsSendInterval = setInterval(async () => {
         if (currentGPS.value.lat && currentGPS.value.lon) {
             try {
@@ -597,7 +568,7 @@ const startGPSSender = () => {
                     longitude: currentGPS.value.lon
                 });
             } catch (e) {
-                // Silent fail - don't interrupt mechanic
+                // Lỗi im lặng - không làm phiền thợ
             }
         }
     }, 10000);
@@ -628,7 +599,46 @@ const updateApptStatus = async (id, status) => {
     }
 }
 
-// MAP ROUTING LOGIC
+// ── KHIẾU NẠI DÀNH CHO THỢ ──
+const showComplaint = ref(false);
+const complaintReason = ref('');
+const complaintTargetId = ref(null);
+const complaintTargetType = ref('SOS');
+
+const openComplaint = (item, type) => {
+    complaintTargetId.value = item.id;
+    complaintTargetType.value = type;
+    complaintReason.value = '';
+    showComplaint.value = true;
+};
+
+const submitComplaint = async () => {
+    if (!complaintReason.value.trim()) {
+        showToast('Vui lòng nhập lý do báo cáo');
+        return;
+    }
+    try {
+        const payload = {
+            reason: complaintReason.value.trim()
+        };
+        // Backend tự gán accused_user = customer thông qua booking id
+        if (complaintTargetType.value === 'SOS') {
+            payload.booking = complaintTargetId.value;
+        }
+
+        await axios.post('/api/bookings/complaints/', payload);
+        showToast({ message: 'Đã gửi báo cáo thành công.', type: 'success' });
+        showComplaint.value = false;
+    } catch (e) {
+        if (e.response && e.response.data && e.response.data.error) {
+            showToast('Lỗi: ' + e.response.data.error);
+        } else {
+            showToast('Lỗi gửi báo cáo');
+        }
+    }
+};
+
+// ── LOGIC CHỈ ĐƯỜNG BẢN ĐỒ ──
 const viewRoute = (item) => {
     activeRouteItem.value = item;
     showMap.value = true;
@@ -640,7 +650,7 @@ const initMap = async () => {
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(mapInstance);
     }
 
-    // Clear previous routing controls and layers
+    // Xóa các điều khiển và lớp chỉ đường trước đó
     if (routingControl) {
         mapInstance.removeControl(routingControl);
         routingControl = null;
@@ -654,14 +664,14 @@ const initMap = async () => {
     const item = activeRouteItem.value;
     if (!item) return;
 
-    // Get Mechanic's current location from user's profile
+    // Lấy vị trí hiện tại của Thợ từ thông tin profile người dùng
     const userStr = localStorage.getItem('user');
     
-    // Parse floats properly
+    // Chuyển đổi định dạng số thực một cách an toàn
     const custLat = parseFloat(item.customer_lat);
     const custLon = parseFloat(item.customer_lon);
 
-    // Mock slightly offset mechanic coord
+    // Giả lập tọa độ của thợ hơi xê dịch (nếu chưa có thiết bị GPS thật)
     let mechLat = custLat - 0.005; 
     let mechLon = custLon - 0.005; 
 
@@ -686,7 +696,7 @@ const initMap = async () => {
       iconSize: [25, 41], iconAnchor: [12, 41]
     });
 
-    // Use leaflet-routing-machine for detailed routing like Google Maps
+    // Sử dụng leaflet-routing-machine để hiện lộ trình chi tiết giống Google Maps
     routingControl = L.Routing.control({
         waypoints: [
             L.latLng(mechLat, mechLon),
@@ -694,9 +704,9 @@ const initMap = async () => {
         ],
         routeWhileDragging: false,
         addWaypoints: false,
-        // language: 'vi', // Removed because leaflet-routing-machine might not have 'vi' built-in without extra files
+        // language: 'vi', // Bỏ đi do leaflet-routing-machine có thể không có mặc định 'vi'
         createMarker: function(i, waypoint, n) {
-            // Use custom markers for start and end
+            // Sử dụng marker tùy chỉnh cho điểm đầu và cuối
             const markerIcon = (i === 0) ? mechIcon : custIcon;
             const popupText = (i === 0) ? "Vị trí của bạn" : "Vị trí Khách hàng";
             const marker = L.marker(waypoint.latLng, { icon: markerIcon });
@@ -707,22 +717,22 @@ const initMap = async () => {
         lineOptions: {
             styles: [{ color: '#1989fa', opacity: 0.8, weight: 6 }]
         },
-        show: false // Hide turn-by-turn text UI by default to save space
+        show: false // Mặc định ẩn UI hiển thị text dẫn đường ở góc để tiết kiệm không gian
     }).addTo(mapInstance);
 
-    // Resize map when shown in popup to fix leaflet tile loading issue
-    // Ensure this runs after the popup animation has completely finished
+    // Sửa lỗi hiển thị tile leaflet khi map render trong popup ẩn
+    // Đảm bảo chạy sau khi hiệu ứng mở popup hoàn tất hoàn toàn
     setTimeout(() => {
         if (mapInstance) {
             mapInstance.invalidateSize();
-            // Refit bounds just in case
+            // Khớp lại góc nhìn phòng trường hợp cần thiết
             const group = new L.featureGroup([
                L.marker([mechLat, mechLon]),
                L.marker([custLat, custLon])
             ]);
             mapInstance.fitBounds(group.getBounds(), { padding: [50, 50] });
         }
-    }, 500); // 500ms delay to allow van-popup to finish animating
+    }, 500); // Chờ 500ms cho van-popup kết thúc animation
 }
 
 const formatDate = (dateStr) => {
@@ -757,27 +767,27 @@ const translateStatus = (s) => {
   font-family: 'Inter', sans-serif;
 }
 
-/* Override nav-bar */
+/* Ghi đè nav-bar */
 :deep(.van-nav-bar) {
   background: linear-gradient(135deg, #1a6fdf, #4f46e5) !important;
 }
 :deep(.van-nav-bar__title) { color: #fff !important; font-weight: 700; }
 :deep(.van-nav-bar .van-icon) { color: #fff !important; }
 
-/* Availability banner */
+/* Banner trạng thái khả dụng */
 :deep(.van-notice-bar) {
   border-radius: 0;
   font-weight: 600;
   font-size: 13px;
 }
 
-/* Tabs */
+/* Thẻ chức năng */
 :deep(.van-tabs__wrap) { background: #fff; height: 50px; }
 
 .p-2 { padding: 12px; }
 .mt-1 { margin-top: 5px; color: #888; font-size: 12px; }
 
-/* ─── SOS / Appt order card ─── */
+/* ─── Thẻ đơn SOS / Lịch hẹn ─── */
 .order-card {
   background: #fff;
   border-radius: 14px;
@@ -827,7 +837,7 @@ const translateStatus = (s) => {
   border-top: 1px solid #f3f4f8;
 }
 
-/* ─── Modern Buttons Override ─── */
+/* ─── Ghi đè cấu hình nút (Modern) ─── */
 :deep(.van-button) {
   border-radius: 8px;
   font-weight: 600;
@@ -858,7 +868,7 @@ const translateStatus = (s) => {
   box-shadow: 0 4px 10px rgba(244, 63, 94, 0.25);
   color: #fff !important;
 }
-/* Plain buttons styling */
+/* Kiểu dáng các nút dạng plain */
 :deep(.van-button--primary.van-button--plain) {
   background: #eff6ff !important;
   color: #2563eb !important;
@@ -930,7 +940,7 @@ const translateStatus = (s) => {
   font-weight: 600; padding: 8px; background: #fff5f5; border-radius: 10px;
 }
 
-/* CHAT POPUP */
+/* POPUP CHAT */
 .chat-header {
   padding: 16px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; background: #fff; border-radius: 20px 20px 0 0;
 }

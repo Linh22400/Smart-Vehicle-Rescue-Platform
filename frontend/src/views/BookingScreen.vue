@@ -1,13 +1,17 @@
 <template>
   <div class="booking-screen">
-    <!-- Map Container -->
+    <!-- Khung chứa bản đồ -->
     <div id="map" class="map-container"></div>
 
-    <!-- Floating Action Panel -->
+    <!-- Panel nút hành động nổi -->
     <div class="fab-panel">
       <button class="fab-ai" @click="openAIModal">
         <van-icon name="scan" size="16" />
         Chẩn Đoán AI
+      </button>
+      <button class="fab-heatmap" :class="{ active: heatmapVisible }" @click="toggleHeatmap" title="Bản đồ vùng nguy hiểm">
+        <component :is="heatmapVisible ? Flame : Layers2" class="fab-heatmap-icon" :size="16" />
+        {{ heatmapVisible ? 'Tắt HeatMap' : 'Điểm Nóng' }}
       </button>
       <button class="fab-sos" @click="showVehicleSheet = true" :disabled="loading">
         <van-icon name="phone-o" size="18" />
@@ -15,7 +19,18 @@
       </button>
     </div>
 
-    <!-- Vehicle Type Selection Sheet -->
+    <!-- Chú thích Heatmap -->
+    <transition name="fade">
+      <div v-if="heatmapVisible" class="heatmap-legend">
+        <div class="hml-title"><Flame :size="13" style="vertical-align:middle;margin-right:4px;color:#e53e1a;" /> Điểm Nóng Sự Cố</div>
+        <div class="hml-row"><span class="hml-dot" style="background:#f00"></span> Nhiều sự cố</div>
+        <div class="hml-row"><span class="hml-dot" style="background:#ff0"></span> Trung bình</div>
+        <div class="hml-row"><span class="hml-dot" style="background:#0f0"></span> Ít sự cố</div>
+        <div class="hml-count" v-if="heatmapCount > 0">{{ heatmapCount }} sự cố đã ghi nhận</div>
+      </div>
+    </transition>
+
+    <!-- Sheet chọn loại xe và mô tả sự cố -->
     <van-action-sheet v-model:show="showVehicleSheet" title="Thông tin sự cố">
       <div class="vehicle-selection p-4">
         <p class="mb-2" style="font-weight: 600; font-size: 14px; color: #333;">1. Loại xe của bạn</p>
@@ -54,10 +69,10 @@
       </div>
     </van-action-sheet>
 
-    <!-- Floating Mechanic Cards (Uber/Grab style) -->
+    <!-- Thẻ thợ nổi kiểu Uber/Grab -->
     <transition name="slide-up">
       <div v-if="showMechanics" class="mech-float-panel">
-        <!-- Header row -->
+        <!-- Hàng tiêu đề panel -->
         <div class="mfp-header">
           <div class="mfp-title">
             <van-icon name="location-o" color="#2563eb" size="15" />
@@ -68,7 +83,7 @@
           </button>
         </div>
 
-        <!-- Horizontal scroll cards -->
+        <!-- Danh sách thẻ thợ cuộn ngang -->
         <div class="mfp-scroll">
           <div
             v-for="mech in mechanics"
@@ -76,16 +91,16 @@
             class="mfp-card"
             @click="bookMechanic(mech)"
           >
-            <!-- Avatar -->
+            <!-- Ảnh đại diện -->
             <div class="mfp-avatar">
               <van-icon name="manager-o" size="28" color="#fff" />
             </div>
 
-            <!-- Info -->
+            <!-- Thông tin thợ -->
             <div class="mfp-name">{{ mech.username }}</div>
             <div class="mfp-spec">{{ mech.specialty || 'Đa dịch vụ' }}</div>
 
-            <!-- Stats row -->
+            <!-- Hàng thống kê (khoảng cách, sao) -->
             <div class="mfp-stats">
               <div class="mfp-stat">
                 <van-icon name="location-o" size="12" color="#2563eb" />
@@ -97,14 +112,14 @@
               </div>
             </div>
 
-            <!-- CTA -->
+            <!-- Nút gọi thợ -->
             <button class="mfp-btn">Gọi ngay</button>
           </div>
         </div>
       </div>
     </transition>
 
-    <!-- SOS WAITING OVERLAY -->
+    <!-- Màn chờ trạng thái SOS -->
     <transition name="fade">
       <div v-if="waitingBooking" class="waiting-overlay">
         <div class="waiting-card">
@@ -120,7 +135,7 @@
             <div class="ws" :class="{done: waitingStep >= 4}">✓ Đang sửa chữa</div>
           </div>
           <div class="waiting-actions">
-            <!-- Chat button when accepted and above -->
+            <!-- Hiện nút Chat khi thợ đã nhận đơn trở lên -->
             <van-button v-if="waitingStep >= 2" type="primary" plain round size="small" icon="chat-o" @click="openChat">Chat</van-button>
             <van-button v-if="waitingStep < 3" type="danger" plain round size="small" @click="cancelWaiting">Hủy đơn</van-button>
             <van-button type="primary" round size="small" @click="goToHistory">Lịch Sử</van-button>
@@ -152,7 +167,7 @@
       </div>
     </van-popup>
 
-    <!-- AI Check Popup -->
+    <!-- Popup chẩn đoán AI -->
     <van-popup
       v-model:show="showAIModal"
       position="bottom"
@@ -162,7 +177,7 @@
     >
       <div class="ai-wrap">
 
-        <!-- Header -->
+        <!-- Tiêu đề popup -->
         <div class="ai-header">
           <div class="ai-header-icon">
             <Stethoscope :size="24" color="#5c6bc0" :stroke-width="1.8" />
@@ -172,18 +187,41 @@
           </div>
         </div>
 
-        <!-- Upload/Record State -->
+        <!-- Giao diện tải ảnh / ghi âm -->
         <div v-if="!aiResult" class="ai-upload-state">
           <van-tabs v-model:active="aiTab" animated swipeable color="#5c6bc0" title-active-color="#5c6bc0">
-            <!-- Image Tab -->
+            <!-- Tab phân tích ảnh -->
             <van-tab name="image">
               <template #title><Camera :size="14" style="vertical-align:-2px;margin-right:4px" />Phân tích Ảnh</template>
               <div class="ai-tab-content">
                 <div v-if="!aiLoading">
-                  <div class="ai-upload-icon"><Camera :size="52" color="#d1d5db" :stroke-width="1.3" /></div>
-                  <p class="ai-upload-title">Chụp ảnh phần hư hỏng</p>
-                  <p class="ai-upload-desc">AI sẽ phân tích và ước tính chi phí cho bạn</p>
-                  <van-uploader v-model="fileList" :max-count="1" :after-read="analyzeImage" accept="image/*" />
+
+                  <!-- Trạng thái xem trước ảnh -->
+                  <div v-if="imagePreviewUrl" class="img-preview-state">
+                    <p class="ai-upload-title">Xem lại ảnh trước khi phân tích</p>
+                    <p class="ai-upload-desc">AI sẽ phân tích ảnh bên dưới và ước tính chi phí sửa chữa</p>
+                    <div class="img-preview-wrap">
+                      <img :src="imagePreviewUrl" class="img-preview-img" alt="Hình ảnh sự cố" />
+                      <div class="img-preview-badge">Ảnh đã chọn</div>
+                    </div>
+                    <div class="audio-preview-actions">
+                      <button class="btn-cancel-audio" @click="cancelImagePreview">
+                        <XCircle :size="16" /> Đổi ảnh
+                      </button>
+                      <button class="btn-confirm-audio" @click="confirmAnalyzeImage">
+                        <Stethoscope :size="16" /> Phân tích ngay
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Trạng thái tải ảnh lên -->
+                  <div v-else>
+                    <div class="ai-upload-icon"><Camera :size="52" color="#d1d5db" :stroke-width="1.3" /></div>
+                    <p class="ai-upload-title">Chụp ảnh phần hư hỏng</p>
+                    <p class="ai-upload-desc">AI sẽ phân tích và ước tính chi phí cho bạn</p>
+                    <van-uploader v-model="fileList" :max-count="1" :after-read="onImageSelected" accept="image/*" />
+                  </div>
+
                 </div>
                 <div v-else class="ai-analyzing">
                   <div class="ai-spinner"></div>
@@ -193,13 +231,13 @@
               </div>
             </van-tab>
 
-            <!-- Sound Tab -->
+            <!-- Tab phân tích âm thanh -->
             <van-tab name="sound">
               <template #title><Mic :size="14" style="vertical-align:-2px;margin-right:4px" />Phân tích Âm thanh</template>
               <div class="ai-tab-content">
                 <div v-if="!aiLoading">
                   
-                  <!-- PREVIEW STATE -->
+                  <!-- Trạng thái xem trước âm thanh -->
                   <div v-if="audioPreviewUrl" class="audio-preview-state">
                     <div class="ai-upload-icon" style="margin-bottom: 12px">
                       <Mic :size="40" color="#5c6bc0" :stroke-width="1.5" />
@@ -219,7 +257,7 @@
                     </div>
                   </div>
 
-                  <!-- RECORD / UPLOAD STATE -->
+                  <!-- Giao diện ghi âm / tải file âm thanh -->
                   <div v-else>
                     <div class="ai-upload-icon">
                       <Mic :size="52" :color="isRecording ? '#ef4444' : '#d1d5db'" :stroke-width="1.3" :class="{ 'pulse-record': isRecording }" />
@@ -259,10 +297,15 @@
           </van-tabs>
         </div>
 
-        <!-- Result State -->
+        <!-- Giao diện hiển thị kết quả AI -->
         <div v-if="aiResult" class="ai-result-wrap">
 
-          <!-- Status Strip -->
+          <!-- Xem trước ảnh đã tải lên -->
+          <div v-if="aiTab === 'image' && fileList.length > 0" class="ai-preview-box">
+            <img :src="fileList[0].content" class="ai-preview-img" alt="Hình ảnh sự cố" />
+          </div>
+
+          <!-- Thanh trạng thái mức độ nghiêm trọng -->
           <div class="ai-status-strip" :class="'strip-' + severityKey">
             <div class="ai-status-left">
               <span class="ai-status-dot"></span>
@@ -273,7 +316,7 @@
             </div>
           </div>
 
-          <!-- Diagnosis Block -->
+          <!-- Khối kết quả chẩn đoán -->
           <div class="ai-card">
             <div class="ai-section-head">
               <div class="ai-icon-box blue"><FileText :size="14" color="#fff" :stroke-width="2" /></div>
@@ -292,7 +335,7 @@
             <div class="ai-card-detail">{{ aiResult.details }}</div>
           </div>
 
-          <!-- Parts Needed -->
+          <!-- Linh kiện có khả năng cần thay -->
           <div v-if="aiResult.parts_needed && aiResult.parts_needed.length > 0" class="ai-parts-wrap">
             <div class="ai-section-head" style="padding: 10px 14px 6px">
               <div class="ai-icon-box green"><Wrench :size="13" color="#fff" :stroke-width="2" /></div>
@@ -303,7 +346,7 @@
             </div>
           </div>
 
-          <!-- Price Breakdown -->
+          <!-- Bảng chi tiết giá ước tính -->
           <div class="ai-price-card">
             <div class="ai-price-header">
               <div class="ai-icon-box indigo"><BadgeDollarSign :size="13" color="#fff" :stroke-width="2" /></div>
@@ -345,7 +388,7 @@
             </div>
           </div>
 
-          <!-- Urgency Bar -->
+          <!-- Thanh cấp độ khẩn cấp -->
           <div class="ai-stats-row">
             <div class="ai-stat-box full">
               <div class="ai-stat-label">Mức khẩn cấp</div>
@@ -357,7 +400,7 @@
             </div>
           </div>
 
-          <!-- Warning Signs -->
+          <!-- Dấu hiệu nguy hiểm cần lưu ý -->
           <div v-if="aiResult.warning_signs" class="ai-warning-box">
             <div class="ai-icon-box red" style="flex-shrink:0">
               <TriangleAlert :size="14" color="#fff" :stroke-width="2" />
@@ -368,7 +411,7 @@
             </div>
           </div>
 
-          <!-- Recommendation -->
+          <!-- Khuyến nghị xử lý từ AI -->
           <div class="ai-recommendation">
             <div class="ai-icon-box slate" style="flex-shrink:0">
               <ShieldCheck :size="14" color="#fff" :stroke-width="2" />
@@ -376,14 +419,14 @@
             <div class="ai-rec-text">{{ aiResult.recommended_action }}</div>
           </div>
 
-          <!-- Badge -->
+          <!-- Badge nguồn kết quả (AI Gemini hay dự phòng) -->
           <div class="ai-powered-row">
             <span class="ai-powered-badge" :class="aiResult.ai_powered ? '' : 'badge-warn'">
               {{ aiResult.ai_powered ? '✨ Kết quả AI Gemini' : '⚠ Kết quả dự phòng' }}
             </span>
           </div>
 
-          <!-- Action Buttons -->
+          <!-- Nút hành động phía dưới kết quả AI -->
           <div class="ai-btn-row">
             <button class="ai-btn-secondary" @click="resetAI">↺ Phân tích lại</button>
             <button class="ai-btn-danger" @click="callSOSFromAI">Gọi Cứu Hộ Ngay</button>
@@ -401,29 +444,32 @@ import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { showToast, showSuccessToast } from 'vant';
 import L from 'leaflet';
+import 'leaflet.heat'; // Bổ sung L.heatLayer() vào đối tượng L của Leaflet
 import {
   Stethoscope, Camera, Mic, CirclePlay, CircleStop,
   FileText, HelpCircle, ClipboardList, Wrench, BadgeDollarSign,
-  Lightbulb, TriangleAlert, ShieldCheck, Upload, XCircle, Bike, Car
+  Lightbulb, TriangleAlert, ShieldCheck, Upload, XCircle, Bike, Car,
+  Flame, Layers2
 } from 'lucide-vue-next';
 
-// State
+// ── Trạng thái bản đồ & vị trí ──
 const router = useRouter();
 const map = ref(null);
 const userLat = ref(null);
 const userLon = ref(null);
 const userMarker = ref(null);
 
-// Configure Axios Global
-axios.defaults.withCredentials = true;
-axios.defaults.baseURL = 'http://localhost:8000'; 
+// Trạng thái Heatmap sự cố
+const heatmapVisible = ref(false);
+const heatmapCount = ref(0);
+let heatmapLayer = null;
 
 const mechanics = ref([]);
 const showMechanics = ref(false);
 const loading = ref(false);
-let mechanicMarkers = null; // LayerGroup for easy clearing
+let mechanicMarkers = null; // LayerGroup chứa marker thợ để tiện xóa hàng loạt
 
-// Vehicle Selection
+// Trạng thái chọn loại xe
 const showVehicleSheet = ref(false);
 const selectedVehicle = ref('BIKE');
 const damageImageFile = ref([]);
@@ -433,7 +479,7 @@ const fileList = ref([]);
 const aiResult = ref(null);
 const aiLoading = ref(false);
 
-// Audio Analysis State
+// Trạng thái phân tích âm thanh
 const aiTab = ref('image'); // 'image' | 'sound'
 const isRecording = ref(false);
 const recordingDuration = ref(0);
@@ -444,13 +490,15 @@ const audioFileList = ref([]);
 const pendingAudioBlob = ref(null);
 const pendingAudioName = ref('');
 const audioPreviewUrl = ref(null);
+const imagePreviewUrl = ref(null); // URL xem trước ảnh trước khi gửi AI
+const pendingImageFile = ref(null); // File đang chờ xác nhận để gửi AI
 
-// State for problem description
+// Mô tả sự cố do khách nhập
 const problemDesc = ref('');
 
 import { computed } from 'vue';
 
-// Computed: severity theming for the banner
+// Computed: màu sắc banner theo mức độ nghiêm trọng
 const severityKey = computed(() => {
     const map = {
         'Nhẹ': 'low',
@@ -478,7 +526,11 @@ const resetAI = () => {
     audioFileList.value = [];
     isRecording.value = false;
     recordingDuration.value = 0;
-    
+
+    // Clear image preview
+    imagePreviewUrl.value = null;
+    pendingImageFile.value = null;
+
     if (audioPreviewUrl.value) {
         URL.revokeObjectURL(audioPreviewUrl.value);
         audioPreviewUrl.value = null;
@@ -497,15 +549,70 @@ const callSOSFromAI = () => {
     handleSOS();
 };
 
-// Initialize Map
+// ── Logic Heatmap ──
+const toggleHeatmap = async () => {
+    if (!map.value) return;
+
+    if (heatmapVisible.value) {
+        // Tắt: xóa layer khỏi bản đồ
+        if (heatmapLayer) {
+            map.value.removeLayer(heatmapLayer);
+            heatmapLayer = null;
+        }
+        heatmapVisible.value = false;
+        return;
+    }
+
+    // Bật: tải dữ liệu từ server rồi render
+    try {
+        const res = await axios.get('/api/bookings/heatmap/');
+        const points = res.data.points || [];
+        heatmapCount.value = res.data.total || 0;
+
+        if (points.length === 0) {
+            showToast('Chưa có dữ liệu sự cố nào được ghi nhận');
+            return;
+        }
+
+        // L.heatLayer khả dụng nhờ leaflet.heat đã mở rộng đối tượng L
+        heatmapLayer = L.heatLayer(points, {
+            radius: 35,
+            blur: 25,
+            maxZoom: 17,
+            max: 1.0,
+            gradient: {
+                0.0: '#00ff00',  // Xanh lá - ít sự cố
+                0.4: '#ffff00',  // Vàng - trung bình
+                0.7: '#ff8800',  // Cam - nhiều
+                1.0: '#ff0000',  // Đỏ - điểm nóng
+            },
+        }).addTo(map.value);
+
+        // Vá lỗi đã biết của leaflet.heat trên Leaflet 1.9.x:
+        // _animateZoom bị gọi sau khi layer bị xóa (this._map = null → crash).
+        // Ghi đè hàm để kiểm tra null trước khi thực thi.
+        const _origAnimateZoom = heatmapLayer._animateZoom.bind(heatmapLayer);
+        heatmapLayer._animateZoom = function (e) {
+            if (!this._map) return;
+            _origAnimateZoom(e);
+        };
+
+        heatmapVisible.value = true;
+    } catch (e) {
+        showToast('Lỗi tải dữ liệu heatmap');
+        console.error('Heatmap error:', e);
+    }
+};
+
+// ── Khởi tạo bản đồ ──
 onMounted(() => {
-  // Init map with default Hanoi coords
+  // Khởi tạo bản đồ với tọa độ mặc định tại Hà Nội
   const defaultLat = 21.0285;
   const defaultLon = 105.8542;
   
   initMap(defaultLat, defaultLon);
 
-  // Try real GPS
+  // Thử lấy GPS thực từ thiết bị
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
       pos => {
@@ -514,7 +621,7 @@ onMounted(() => {
       },
       err => {
         showToast('Không lấy được GPS, vui lòng chọn vị trí trên bản đồ');
-        updateUserLocation(defaultLat, defaultLon); // Fallback to default
+        updateUserLocation(defaultLat, defaultLon); // Dùng tọa độ mặc định nếu GPS lỗi
       }
     );
   } else {
@@ -529,11 +636,11 @@ function initMap(lat, lon) {
     attribution: '© OpenStreetMap'
   }).addTo(map.value);
 
-  // Click on map to set location
+  // Click lên bản đồ để cập nhật vị trí người dùng
   map.value.on('click', (e) => {
     updateUserLocation(e.latlng.lat, e.latlng.lng);
   });
-  // Init mechanic markers layer group
+  // Khởi tạo LayerGroup hiển thị marker các thợ trên bản đồ
   mechanicMarkers = L.layerGroup().addTo(map.value);
 }
 
@@ -544,7 +651,7 @@ function updateUserLocation(lat, lon) {
   if (userMarker.value) {
     userMarker.value.setLatLng([lat, lon]);
   } else {
-    // Create Red Marker for User
+    // Tạo marker đỏ đánh dấu vị trí người dùng
     const redIcon = new L.Icon({
       iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
       shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
@@ -561,7 +668,7 @@ function updateUserLocation(lat, lon) {
       .bindPopup('Vị trí của bạn (Kéo hoặc Click để sửa)')
       .openPopup();
 
-    // Drag event
+    // Cập nhật tọa độ khi kéo marker
     userMarker.value.on('dragend', function (e) {
       const coord = e.target.getLatLng();
       userLat.value = coord.lat;
@@ -570,7 +677,7 @@ function updateUserLocation(lat, lon) {
   }
 }
 
-// SOS Function
+// ── Luồng gọi SOS ──
 const confirmSOS = () => {
   showVehicleSheet.value = false;
   handleSOS();
@@ -592,7 +699,7 @@ async function handleSOS() {
     mechanics.value = response.data;
     showMechanics.value = true;
     
-    // Clear previous mechanic markers before adding new
+    // Xóa marker thợ cũ trước khi thêm kết quả mới
     if (mechanicMarkers) mechanicMarkers.clearLayers();
     mechanics.value.forEach(m => {
         L.marker([m.latitude, m.longitude]).addTo(mechanicMarkers)
@@ -622,17 +729,28 @@ async function bookMechanic(mech) {
         };
 
         if (damageImageFile.value.length > 0) {
-            payload.damage_image = damageImageFile.value[0].content; // Base64 string
+            payload.damage_image = damageImageFile.value[0].content; // Chuỗi Base64
         } else if (fileList.value.length > 0) {
-            payload.damage_image = fileList.value[0].content; // Base64 string
+            payload.damage_image = fileList.value[0].content; // Chuỗi Base64
         }
 
         const res = await axios.post('/api/bookings/create/', payload);
         showSuccessToast(`Đã gửi yêu cầu đến ${mech.username}!`);
         showMechanics.value = false;
-        // Show waiting overlay instead of redirecting
+        // Hiện màn chờ SOS thay vì chuyển trang
         waitingBooking.value = res.data;
         startWaitingPolling();
+
+        // Lưu cache thông tin thợ vào localStorage để dùng khi offline
+        try {
+            localStorage.setItem('last_mechanic', JSON.stringify({
+                name: mech.full_name || mech.username,
+                phone: mech.phone_number || '',
+                specialization: mech.specialty || 'Thợ cứu hộ',
+                rating: mech.rating || null,
+                cached_at: new Date().toISOString(),
+            }));
+        } catch (e) { /* localStorage đầy — bỏ qua */ }
     } catch (error) {
         showToast('Lỗi đặt thợ. Vui lòng thử lại.');
         console.error(error);
@@ -684,7 +802,7 @@ const sendChat = async () => {
 
 const startChatPolling = () => {
     if (chatPollInterval) return;
-    chatPollInterval = setInterval(fetchChats, 3000); // poll every 3 seconds
+    chatPollInterval = setInterval(fetchChats, 3000); // Polling chat mỗi 3 giây
 };
 
 const stopChatPolling = () => {
@@ -783,7 +901,27 @@ const goToHistory = () => {
     router.push('/history');
 };
 
-// AI Analysis - Gemini Vision
+// AI - Bước 1: Lưu ảnh để xem trước, chưa gọi API
+function onImageSelected(file) {
+    pendingImageFile.value = file;
+    // Hiển thị xem trước bằng nội dung base64 từ Vant uploader
+    imagePreviewUrl.value = file.content;
+}
+
+// AI - Bước 2: Hủy xem trước, quay lại màn tải ảnh
+function cancelImagePreview() {
+    imagePreviewUrl.value = null;
+    pendingImageFile.value = null;
+    fileList.value = [];
+}
+
+// AI - Bước 3: Xác nhận và gửi ảnh lên AI phân tích
+async function confirmAnalyzeImage() {
+    if (!pendingImageFile.value) return;
+    await analyzeImage(pendingImageFile.value);
+}
+
+// AI - Gọi Gemini Vision API để phân tích ảnh hư hỏng
 async function analyzeImage(file) {
     const formData = new FormData();
     formData.append('image', file.file);
@@ -812,7 +950,7 @@ async function analyzeImage(file) {
     }
 }
 
-// Audio Recording Logic
+// ── Logic ghi âm ──
 const startRecording = async () => {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -824,13 +962,13 @@ const startRecording = async () => {
         });
 
         mediaRecorder.addEventListener('stop', async () => {
-            stream.getTracks().forEach(track => track.stop()); // release mic
-            if (recordingDuration.value < 1) return; // Ignore accidental clicks
+            stream.getTracks().forEach(track => track.stop()); // Giải phóng microphone
+            if (recordingDuration.value < 1) return; // Bỏ qua nếu click nhầm (< 1 giây)
             
             clearInterval(recordingTimer);
             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
             
-            // Set for preview instead of analyzing immediately
+            // Đưa vào trạng thái xem trước thay vì phân tích ngay
             pendingAudioBlob.value = audioBlob;
             pendingAudioName.value = 'recording.webm';
             audioPreviewUrl.value = URL.createObjectURL(audioBlob);
@@ -843,7 +981,7 @@ const startRecording = async () => {
         recordingTimer = setInterval(() => {
             recordingDuration.value += 1;
             if (recordingDuration.value >= 30) {
-                stopRecording(); // max 30 seconds
+                stopRecording(); // Tự dừng sau tối đa 30 giây
             }
         }, 1000);
 
@@ -995,6 +1133,86 @@ const uploadAudioFile = async (fileInfo) => {
   background: rgba(224,234,255,0.96);
 }
 
+/* Heatmap toggle button */
+.fab-heatmap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 50px;
+  padding: 0 16px;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(8px);
+  color: #555;
+  font-size: 13px;
+  font-weight: 700;
+  border: 1.5px solid rgba(0,0,0,0.12);
+  border-radius: 14px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s, border-color 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+.fab-heatmap:active { transform: scale(0.97); }
+.fab-heatmap.active {
+  background: rgba(255, 87, 34, 0.12);
+  border-color: rgba(255, 87, 34, 0.5);
+  color: #e53e1a;
+}
+.fab-heatmap-icon {
+  flex-shrink: 0;
+  transition: color 0.2s, transform 0.3s;
+}
+.fab-heatmap.active .fab-heatmap-icon {
+  color: #e53e1a;
+  transform: scale(1.15) rotate(-5deg);
+}
+
+/* Heatmap legend card */
+.heatmap-legend {
+  position: absolute;
+  bottom: 140px;
+  left: 12px;
+  background: rgba(255,255,255,0.93);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 10px 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+  z-index: 600;
+  min-width: 150px;
+  border: 1px solid rgba(255,87,34,0.25);
+}
+.hml-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 8px;
+}
+.hml-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #555;
+  margin-bottom: 4px;
+}
+.hml-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+.hml-count {
+  margin-top: 6px;
+  font-size: 10px;
+  color: #888;
+  border-top: 1px solid #eee;
+  padding-top: 5px;
+}
+.fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+
 .p-4 { padding: 16px; }
 .mt-2 { margin-top: 8px; }
 .mt-3 { margin-top: 12px; }
@@ -1013,7 +1231,30 @@ const uploadAudioFile = async (fileInfo) => {
   width: 100%;
 }
 .van-radio__label { font-size: 16px; font-weight: 500; }
-/* ===== AI MODAL – Clean Design ===== */
+/* =========================================
+   NEW AI - PREVIEW IMAGE
+   ========================================= */
+.ai-preview-box {
+  width: 100%;
+  margin-bottom: 12px;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.ai-preview-img {
+  width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+  display: block;
+}
+
+/* =========================================
+   NEW AI - MODAL (Apple Style)
+   ========================================= */
 .ai-wrap {
   padding-bottom: 28px;
   overflow-y: auto;
@@ -1922,6 +2163,76 @@ const uploadAudioFile = async (fileInfo) => {
   background: #fff1f2 !important;
   color: #e11d48 !important;
 }
+
+/* ── Image Preview (AI Diagnosis) ── */
+.img-preview-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 0 8px;
+}
+.img-preview-wrap {
+  position: relative;
+  width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  margin: 12px 0;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  max-height: 260px;
+}
+.img-preview-img {
+  width: 100%;
+  max-height: 260px;
+  object-fit: cover;
+  display: block;
+}
+.img-preview-badge {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  backdrop-filter: blur(4px);
+}
+/* Reused audio-preview-actions for image preview */
+.audio-preview-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 4px;
+  width: 100%;
+}
+.btn-cancel-audio {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  background: #f3f4f8;
+  color: #666;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 13px; font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-cancel-audio:active { background: #e5e7eb; }
+.btn-confirm-audio {
+  flex: 2;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  background: linear-gradient(135deg, #5c6bc0, #7986cb);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 13px; font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(92,107,192,0.35);
+  transition: opacity 0.15s;
+}
+.btn-confirm-audio:active { opacity: 0.85; }
 
 </style>
 

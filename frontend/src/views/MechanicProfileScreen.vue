@@ -142,7 +142,7 @@ onMounted(async () => {
             form.value.bank_account_name = user.mechanic_profile.bank_account_name || '';
         }
     } catch(e) {
-        // Fallback to localStorage
+        // Fallback sang localStorage khi API lỗi báo về
         const savedStr = localStorage.getItem('user');
         if (savedStr) {
             const user = JSON.parse(savedStr);
@@ -184,7 +184,7 @@ const getGPS = () => {
 const saveProfile = async () => {
     saving.value = true;
     try {
-        // Update mechanic status and location
+        // Cập nhật trạng thái và vị trí của thợ
         await axios.post('/api/users/mechanic/status/', {
             latitude: form.value.latitude,
             longitude: form.value.longitude,
@@ -195,14 +195,14 @@ const saveProfile = async () => {
             bank_account_name: form.value.bank_account_name,
         });
 
-        // Update phone via profile API
+        // Cập nhật số điện thoại thông qua API profile
         await axios.patch('/api/users/profile/', {
             phone_number: form.value.phone,
         });
 
         showSuccessToast('Đã lưu hồ sơ thành công!');
         
-        // Refresh localStorage
+        // Làm mới localStorage
         const res = await axios.get('/api/users/profile/');
         localStorage.setItem('user', JSON.stringify(res.data));
     } catch(e) {
@@ -235,7 +235,7 @@ const saveProfile = async () => {
   padding: 16px;
 }
 
-/* Avatar Section */
+/* Phần Ảnh Đại Diện */
 .avatar-section {
   text-align: center;
   padding: 24px 0 20px 0;
@@ -266,7 +266,7 @@ const saveProfile = async () => {
   letter-spacing: 0.3px;
 }
 
-/* Customizing Cell Groups & Inputs */
+/* Tùy chỉnh các Nhóm Cell & Input */
 :deep(.van-cell-group--inset) {
   margin: 16px 0 0 0;
   border-radius: 16px;
@@ -300,7 +300,7 @@ const saveProfile = async () => {
   margin-top: 24px;
 }
 
-/* ─── Modern Buttons Override ─── */
+/* ─── Ghi đè Nút Bấm Hiện Đại ─── */
 :deep(.van-button) {
   border-radius: 12px;
   font-weight: 700;
@@ -328,6 +328,13 @@ const saveProfile = async () => {
   background: #eff6ff !important;
   color: #2563eb !important;
   border: 1px solid #bfdbfe !important;
+  box-shadow: none;
+}
+/* Ghi đè giao diện nút bấm trong chế độ nền tối */
+body.dark-theme :deep(.van-button--primary.van-button--plain) {
+  background: #1a2744 !important;
+  color: #64b5f6 !important;
+  border: 1px solid #2563eb !important;
   box-shadow: none;
 }
 </style>

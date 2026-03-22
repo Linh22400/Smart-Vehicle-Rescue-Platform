@@ -1,6 +1,6 @@
 <template>
   <div class="login-page">
-    <!-- Hero Section -->
+    <!-- Phần hiển thị ảnh bìa nổi bật -->
     <div class="login-hero">
       <div class="hero-circles">
         <div class="circle c1"></div>
@@ -17,12 +17,12 @@
       <p class="hero-sub">Hệ thống cứu hộ xe thông minh</p>
     </div>
 
-    <!-- Card -->
+    <!-- Thẻ đăng nhập -->
     <div class="login-card">
       <h2 class="card-title">Đăng nhập</h2>
 
       <van-form @submit="onSubmit">
-        <!-- Username -->
+        <!-- Tên đăng nhập -->
         <div class="input-group">
           <span class="input-icon"><van-icon name="contact-o" /></span>
           <van-field
@@ -35,7 +35,7 @@
           />
         </div>
 
-        <!-- Password -->
+        <!-- Mật khẩu -->
         <div class="input-group">
           <span class="input-icon"><van-icon name="lock" /></span>
           <van-field
@@ -52,7 +52,7 @@
           </span>
         </div>
 
-        <!-- Login button -->
+        <!-- Nút đăng nhập -->
         <van-button
           round block
           type="primary"
@@ -116,7 +116,7 @@ const onSubmit = async (values) => {
   overflow: hidden;
 }
 
-/* Hero */
+/* Phần hiển thị ảnh bìa nổi bật */
 .login-hero {
   width: 100%;
   position: relative;
@@ -156,7 +156,7 @@ const onSubmit = async (values) => {
   margin: 0;
 }
 
-/* Card */
+/* Thẻ form đăng nhập */
 .login-card {
   width: calc(100% - 32px);
   max-width: 420px;
@@ -177,7 +177,7 @@ const onSubmit = async (values) => {
   text-align: center;
 }
 
-/* Input groups */
+/* Nhóm ô nhập liệu */
 .input-group {
   display: flex;
   align-items: center;
@@ -211,7 +211,7 @@ const onSubmit = async (values) => {
   color: #bbb;
 }
 
-/* Buttons */
+/* Các nút bấm */
 .btn-login {
   height: 48px;
   font-size: 15px;
@@ -240,7 +240,7 @@ const onSubmit = async (values) => {
 .divider::before { left: 0; }
 .divider::after { right: 0; }
 
-/* Eye toggle */
+/* Biểu tượng con mắt bật/tắt mật khẩu */
 .toggle-eye {
   padding: 0 4px;
   cursor: pointer;

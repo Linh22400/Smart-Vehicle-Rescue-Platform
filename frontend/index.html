@@ -1,14 +1,53 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Smart Rescue Platform</title>
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+  <!-- SEO & App Info -->
+  <title>Smart Rescue Platform</title>
+  <meta name="description" content="Hệ thống cứu hộ xe thông minh – đặt thợ, theo dõi GPS, thanh toán trực tiếp" />
+  <meta name="keywords" content="cứu hộ xe, sửa xe, thợ cơ khí, ứng cứu xe máy" />
+
+  <!-- PWA Theme -->
+  <meta name="theme-color" content="#1a1a2e" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="application-name" content="Smart Rescue" />
+
+  <!-- iOS PWA Support -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Smart Rescue" />
+  <link rel="apple-touch-icon" href="/pwa-192x192.png" />
+
+  <!-- PWA Icons -->
+  <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="/pwa-512x512.png" />
+
+  <!-- Open Graph (share preview) -->
+  <meta property="og:title" content="Smart Rescue Platform" />
+  <meta property="og:description" content="Cứu hộ xe thông minh – kết nối khách và thợ trong vài giây" />
+  <meta property="og:image" content="/pwa-512x512.png" />
+  <meta property="og:type" content="website" />
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+
+  <!-- Splash screen background for iOS -->
+  <style>
+    body {
+      background-color: #1a1a2e;
+      margin: 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app"></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+
 </html>

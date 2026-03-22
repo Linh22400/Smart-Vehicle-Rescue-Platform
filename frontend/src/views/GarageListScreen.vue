@@ -1,6 +1,6 @@
 <template>
   <div class="garage-page">
-    <!-- Header -->
+    <!-- Phần đầu -->
     <div class="garage-hero">
       <van-icon name="arrow-left" size="20" color="#fff" @click="$router.go(-1)" class="back-icon" />
       <div class="garage-hero-text">
@@ -9,20 +9,20 @@
       </div>
     </div>
 
-    <!-- Search -->
+    <!-- Tìm kiếm -->
     <div class="search-wrap">
       <van-icon name="search" size="16" color="#aaa" />
       <input v-model="search" class="search-input" placeholder="Tìm dịch vụ, tên Gara..." />
     </div>
 
-    <!-- States -->
+    <!-- Trạng thái -->
     <div v-if="loading" class="loading-state">
       <van-loading size="28" color="#2563eb" />
       <p>Đang tải danh sách Gara...</p>
     </div>
     <van-empty v-else-if="filteredMechanics.length === 0" image="search" description="Không tìm thấy Gara nào" />
 
-    <!-- Grid -->
+    <!-- Lưới dạng Masonry -->
     <div class="garage-grid" v-else>
       <div
         v-for="mech in filteredMechanics"
@@ -30,7 +30,7 @@
         class="garage-card"
         :class="{ 'expanded': openGarage === mech.id }"
       >
-        <!-- Card Header -->
+        <!-- Khối chứa thông tin chung -->
         <div class="gc-top">
           <div class="gc-avatar">
             <van-icon name="shop-o" size="22" color="#fff" />
@@ -41,7 +41,7 @@
           </div>
         </div>
 
-        <!-- Badges -->
+        <!-- Các nhãn nổi bật -->
         <div class="gc-badges">
           <span class="gc-badge rating">
             <van-icon name="star" size="10" color="#e67e00" /> {{ mech.rating }}
@@ -49,7 +49,7 @@
           <span class="gc-badge svc">{{ mech.services.length }} dịch vụ</span>
         </div>
 
-        <!-- Expand Toggle -->
+        <!-- Nút thu gọn / mở rộng -->
         <button
           v-if="mech.services.length > 0"
           class="gc-toggle"
@@ -60,7 +60,7 @@
         </button>
         <div v-else class="gc-no-svc">Chưa có dịch vụ</div>
 
-        <!-- Services (expanded) -->
+        <!-- Danh sách Dịch vụ (khi mở rộng) -->
         <transition name="expand">
           <div v-if="openGarage === mech.id" class="gc-services">
             <div
@@ -145,7 +145,7 @@ const bookService = (mech, svc) => {
   padding-bottom: 70px;
 }
 
-/* ─── Hero ─── */
+/* ─── Phần đầu ─── */
 .garage-hero {
   background: linear-gradient(135deg, #1a6fdf, #4f46e5);
   padding: 18px 16px 22px;
@@ -157,7 +157,7 @@ const bookService = (mech, svc) => {
 .garage-hero-title { color: #fff; font-size: 18px; font-weight: 700; }
 .garage-hero-sub { color: rgba(255,255,255,0.75); font-size: 12px; margin-top: 2px; }
 
-/* ─── Search ─── */
+/* ─── Tìm kiếm ─── */
 .search-wrap {
   display: flex;
   align-items: center;
@@ -174,18 +174,18 @@ const bookService = (mech, svc) => {
 }
 .search-input::placeholder { color: #bbb; }
 
-/* Loading */
+/* Trạng thái đang tải */
 .loading-state { text-align: center; padding: 40px 20px; color: #888; font-size: 14px; }
 .loading-state p { margin-top: 10px; }
 
-/* ─── 2-Column Grid (Masonry) ─── */
+/* ─── Lưới 2 cột (Masonry) ─── */
 .garage-grid {
   column-count: 2;
   column-gap: 10px;
   padding: 0 12px;
 }
 
-/* ─── Garage Card ─── */
+/* ─── Thẻ Garage ─── */
 .garage-card {
   break-inside: avoid;
   margin-bottom: 10px;
@@ -202,7 +202,7 @@ const bookService = (mech, svc) => {
   border-color: #c7d7ff;
 }
 
-/* Top row */
+/* Khối trên cùng */
 .gc-top {
   display: flex;
   align-items: center;
@@ -227,7 +227,7 @@ const bookService = (mech, svc) => {
   margin-top: 1px;
 }
 
-/* Badges */
+/* Nhãn nổi bật (Badges) */
 .gc-badges { display: flex; gap: 5px; margin-bottom: 9px; flex-wrap: wrap; }
 .gc-badge {
   display: inline-flex; align-items: center; gap: 3px;
@@ -237,7 +237,7 @@ const bookService = (mech, svc) => {
 .rating { background: #fff8e1; color: #b45309; }
 .svc    { background: #e0eaff; color: #2563eb; }
 
-/* Toggle button */
+/* Nút chuyển đổi */
 .gc-toggle {
   width: 100%;
   display: flex; align-items: center; justify-content: center; gap: 4px;
@@ -251,7 +251,7 @@ const bookService = (mech, svc) => {
 .gc-toggle:active { background: #e0eaff; }
 .gc-no-svc { font-size: 11px; color: #bbb; text-align: center; padding: 6px 0; }
 
-/* Services list (expanded) */
+/* Danh sách dịch vụ */
 .gc-services { margin-top: 10px; border-top: 1px solid #f0f0f0; padding-top: 8px; }
 .gc-svc-item {
   display: flex; align-items: center; justify-content: space-between;
@@ -264,7 +264,7 @@ const bookService = (mech, svc) => {
 .gc-svc-name { font-size: 13px; font-weight: 600; color: #222; }
 .gc-svc-price { font-size: 12px; font-weight: 700; color: #2563eb; margin-top: 2px; }
 
-/* Expand animation */
+/* Hiệu ứng mở rộng */
 .expand-enter-active { transition: all 0.25s ease; overflow: hidden; }
 .expand-leave-active { transition: all 0.2s ease;  overflow: hidden; }
 .expand-enter-from, .expand-leave-to { max-height: 0; opacity: 0; }

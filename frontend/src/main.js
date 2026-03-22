@@ -5,12 +5,12 @@ import Vant from 'vant'
 import 'vant/lib/index.css'
 import axios from 'axios'
 
-// --- Fix tiếng Trung trên dialog Vant: set locale sang tiếng Việt ---
+// --- Sửa lỗi dialog Vant hiển thị tiếng Trung: chuyển sang locale tiếng Việt ---
 import { Locale } from 'vant'
 
 const viVN = {
     name: 'vi-VN',
-    // Dialog & shared buttons
+    // Nút dùng chung trong Dialog
     confirm: 'Xác nhận',
     cancel: 'Hủy bỏ',
     // Picker
@@ -31,9 +31,9 @@ const viVN = {
 }
 Locale.use('vi-VN', viVN)
 
-// Global Axios Config
+// Cấu hình Axios toàn cục — baseURL dùng Vite proxy (URL tương đối /api/...)
+// Không đặt baseURL ở đây; để Vite proxy chuyển tiếp /api/* đến http://127.0.0.1:8000
 axios.defaults.withCredentials = true;
-axios.defaults.baseURL = 'http://localhost:8000';
 
 const app = createApp(App)
 app.use(router)

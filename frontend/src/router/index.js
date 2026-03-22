@@ -13,6 +13,7 @@ import TermsScreen from '../views/TermsScreen.vue'
 import PrivacyScreen from '../views/PrivacyScreen.vue'
 import MechanicProfileScreen from '../views/MechanicProfileScreen.vue'
 import MechanicServicesScreen from '../views/MechanicServicesScreen.vue'
+import OfflineScreen from '../views/OfflineScreen.vue'
 
 const routes = [
     { path: '/', redirect: '/login' },
@@ -30,6 +31,7 @@ const routes = [
     { path: '/privacy', component: PrivacyScreen },
     { path: '/mechanic/profile', component: MechanicProfileScreen },
     { path: '/mechanic/services', component: MechanicServicesScreen },
+    { path: '/offline', component: OfflineScreen },
 ]
 
 const router = createRouter({
@@ -37,7 +39,7 @@ const router = createRouter({
     routes,
 })
 
-// Route Guards
+// Bảo vệ route — kiểm tra đăng nhập và phân quyền trước mỗi điều hướng
 router.beforeEach((to, from, next) => {
     const userStr = localStorage.getItem('user');
     let isAuthenticated = false;
@@ -51,22 +53,22 @@ router.beforeEach((to, from, next) => {
         } catch (e) { }
     }
 
-    const publicPages = ['/login', '/register'];
+    const publicPages = ['/login', '/register', '/offline'];
     const authRequired = !publicPages.includes(to.path);
 
-    // Redirect to login if auth is required but not logged in
+    // Chuyển về login nếu chưa đăng nhập nhưng route yêu cầu auth
     if (authRequired && !isAuthenticated) {
         return next('/login');
     }
 
-    // Redirect away from login/register if already logged in
-    if (!authRequired && isAuthenticated) {
-        return next('/booking'); // Default authenticated route
+    // Đã đăng nhập thì không cho vào trang login/register (nhưng cho phép vào /offline)
+    if (!authRequired && isAuthenticated && to.path !== '/offline') {
+        return next('/booking'); // Route mặc định sau khi đăng nhập
     }
 
-    // Protect mechanic dashboard
-    if (to.path === '/mechanic' && !isMechanic) {
-        return next('/booking'); // Redirect back to customer view
+    // Bảo vệ tất cả route thợ — chỉ tài khoản is_mechanic mới vào được
+    if (to.path.startsWith('/mechanic') && !isMechanic) {
+        return next('/booking'); // Khách hàng bị chuyển về màn hình đặt xe
     }
 
     next();

@@ -35,7 +35,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { showToast } from 'vant';
-import { globalThemeState } from '../App.vue';
+import { globalThemeState } from '../themeStore.js';
 
 const router = useRouter();
 
@@ -48,11 +48,7 @@ onMounted(() => {
 
 const toggleTheme = (checked) => {
     const newTheme = checked ? 'dark' : 'light';
-    localStorage.setItem('app_theme', newTheme);
-    globalThemeState.value = newTheme; // Update App's van-config-provider instantly
-    
-    // Dispatch to update body classes in App component
-    window.dispatchEvent(new CustomEvent('theme-changed', { detail: newTheme }));
+    globalThemeState.value = newTheme; // Tự động đồng bộ nhờ themeStore
 };
 
 const onClickLeft = () => {
@@ -60,6 +56,11 @@ const onClickLeft = () => {
 };
 
 const clearCache = () => {
+    // Xóa toàn bộ localStorage (bao gồm user, auth), chỉ giữ session trạng thái hoặc theme nếu muốn (ở đây xóa hết là an toàn nhất với đăng xuất cơ bản)
+    const keep = ['user', 'app_theme'];
+    Object.keys(localStorage)
+        .filter(k => !keep.includes(k))
+        .forEach(k => localStorage.removeItem(k));
     showToast('Đã xóa bộ nhớ đệm');
 };
 </script>

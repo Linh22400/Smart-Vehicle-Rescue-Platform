@@ -1,7 +1,7 @@
 <template>
   <div class="profile-page">
 
-    <!-- Hero Banner -->
+    <!-- Phần ảnh bìa nổi bật -->
     <div class="profile-hero">
       <div class="hero-bg-circle"></div>
       <div class="profile-avatar-wrap">
@@ -20,7 +20,7 @@
       </div>
     </div>
 
-    <!-- Info Summary Card -->
+    <!-- Thẻ tóm tắt thông tin -->
     <div class="info-card">
       <div class="info-row">
         <div class="info-icon-wrap blue"><van-icon name="contact-o" size="14" color="#fff" /></div>
@@ -55,7 +55,7 @@
       </div>
     </div>
 
-    <!-- Edit Button -->
+    <!-- Nút chỉnh sửa -->
     <div class="edit-btn-wrap">
       <button class="edit-btn" @click="openEdit">
         <van-icon name="edit" size="15" />
@@ -63,7 +63,7 @@
       </button>
     </div>
 
-    <!-- Menu Cards -->
+    <!-- Khối tính năng -->
     <div class="menu-section">
       <div class="menu-group-label">Chức năng</div>
       <div class="menu-card">
@@ -87,14 +87,14 @@
         </div>
       </div>
 
-      <!-- Logout -->
+      <!-- Đăng xuất -->
       <div class="logout-btn" @click="handleLogout">
         <van-icon name="close-o" size="16" />
         Đăng Xuất
       </div>
     </div>
 
-    <!-- ── Edit Profile Popup ── -->
+    <!-- ── Popup Khung Sửa Thông Tin ── -->
     <van-popup v-model:show="editVisible" position="bottom"
       round :style="{ maxHeight: '90%', overflowY: 'auto' }">
       <div class="edit-popup">
@@ -103,7 +103,7 @@
           <van-icon name="cross" size="18" color="#888" @click="editVisible = false" />
         </div>
 
-        <!-- Section: Basic info -->
+        <!-- Phần: Thông tin cơ bản -->
         <div class="ep-section-label">
           <div class="ep-dot blue"></div>Thông tin cơ bản
         </div>
@@ -125,7 +125,7 @@
           <input v-model="form.email" class="ep-input" placeholder="example@email.com" type="email" />
         </div>
 
-        <!-- Section: Change password -->
+        <!-- Phần: Đổi mật khẩu -->
         <div class="ep-section-label" style="margin-top: 20px">
           <div class="ep-dot red"></div>Đổi mật khẩu (tuỳ chọn)
         </div>
@@ -151,7 +151,7 @@
           </div>
         </div>
 
-        <!-- Save button -->
+        <!-- Nút lưu -->
         <button class="ep-save-btn" :disabled="saving" @click="saveProfile">
           <van-loading v-if="saving" size="16" color="#fff" />
           <span v-else><van-icon name="success" size="14" /> Lưu thay đổi</span>
@@ -167,21 +167,18 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { showToast, showSuccessToast } from 'vant';
-import { globalThemeState } from '../App.vue';
+import { globalThemeState } from '../themeStore.js';
 
 const router = useRouter();
 
-// Dark mode logic
+// Logic chế độ tối
 const isDarkMode = ref(globalThemeState.value === 'dark');
 watch(isDarkMode, (newVal) => {
-  const theme = newVal ? 'dark' : 'light';
-  globalThemeState.value = theme;
-  localStorage.setItem('app_theme', theme);
-  window.dispatchEvent(new CustomEvent('theme-changed', { detail: theme }));
+  globalThemeState.value = newVal ? 'dark' : 'light';
 });
 const toggleDarkMode = () => { isDarkMode.value = !isDarkMode.value; };
 
-// ─── User State ──────────────────────────────────────────────────
+// ─── Trạng thái người dùng ──────────────────────────────────────────────────
 const username    = ref('');
 const firstName   = ref('');
 const lastName    = ref('');
@@ -200,7 +197,7 @@ const fullName = computed(() =>
     : ''
 );
 
-// ─── Edit Popup State ─────────────────────────────────────────────
+// ─── Trạng thái Popup Sửa ─────────────────────────────────────────────
 const editVisible   = ref(false);
 const saving        = ref(false);
 const showCurrentPw = ref(false);
@@ -220,8 +217,8 @@ const avatarUploader = ref([]);
 
 const onReadAvatar = (file) => {
     avatarFile.value = file.file;
-    avatarUrl.value = file.content; // preview
-    saveProfile(true); // Auto upload immediately
+    avatarUrl.value = file.content; // Ảnh nháp hiển thị
+    saveProfile(true); // Tự động upload lên server ngay lập tức
 };
 
 const openEdit = () => {
@@ -238,9 +235,9 @@ const openEdit = () => {
   editVisible.value = true;
 };
 
-// ─── Load Profile ─────────────────────────────────────────────────
+// ─── Tải Hồ sơ ─────────────────────────────────────────────────
 const loadProfile = async () => {
-  // Pre-fill from localStorage instantly
+  // Điền trước từ localStorage ngay lập tức
   const saved = localStorage.getItem('user');
   if (saved) {
     const u = JSON.parse(saved);
@@ -251,7 +248,7 @@ const loadProfile = async () => {
     phoneNumber.value = u.phone_number|| '';
     isMechanic.value  = u.is_mechanic || false;
   }
-  // Fetch fresh data from server
+  // Lấy dữ liệu mới nhất từ máy chủ
   try {
     const res = await axios.get('/api/users/profile/');
     const u = res.data;
@@ -263,11 +260,10 @@ const loadProfile = async () => {
     isMechanic.value  = u.is_mechanic  || false;
     avatarUrl.value   = u.avatar       || '';
     localStorage.setItem('user', JSON.stringify(u));
-  } catch (_) { /* keep localStorage values */ }
+  } catch (_) { /* Bỏ qua lỗi, dùng tạm dữ liệu cũ từ localStorage */ }
 };
 
-// ─── Save Profile ─────────────────────────────────────────────────
-// ─── Save Profile ─────────────────────────────────────────────────
+// ─── Lưu Hồ sơ ─────────────────────────────────────────────────
 const saveProfile = async (isAvatarUpload = false) => {
   if (!isAvatarUpload) saving.value = true;
   try {
@@ -301,8 +297,8 @@ const saveProfile = async (isAvatarUpload = false) => {
     
     showSuccessToast(isAvatarUpload ? 'Đã đổi ảnh đại diện' : 'Cập nhật thành công!');
     editVisible.value = false;
-    avatarFile.value = null; // reset file
-    avatarUploader.value = []; // clear uploader UI cache
+    avatarFile.value = null; // đặt lại file
+    avatarUploader.value = []; // xóa UI tạm thời của component upload
   } catch (e) {
     const msg = e.response?.data?.error || 'Lỗi cập nhật thông tin';
     showFailToast(msg);
@@ -311,7 +307,7 @@ const saveProfile = async (isAvatarUpload = false) => {
   }
 };
 
-// ─── Logout ───────────────────────────────────────────────────────
+// ─── Đăng xuất ───────────────────────────────────────────────────────
 const handleLogout = async () => {
   try {
     await axios.post('/api/users/logout/');
@@ -336,7 +332,7 @@ onMounted(loadProfile);
   padding-bottom: 80px;
 }
 
-/* ── Hero ── */
+/* ── Ảnh bìa nổi bật ── */
 .profile-hero {
   background: linear-gradient(145deg, #1a6fdf, #4f46e5);
   padding: 40px 20px 32px;
@@ -382,7 +378,7 @@ onMounted(loadProfile);
   border: 2px solid white;
 }
 
-/* ── Info Card ── */
+/* ── Khung Thông tin ── */
 .info-card {
   background: #fff;
   border-radius: 16px;
@@ -400,7 +396,7 @@ onMounted(loadProfile);
 .info-value { font-size: 14px; font-weight: 600; color: #1a1a2e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .info-divider { height: 1px; background: #f3f4f8; margin: 0 16px; }
 
-/* ── Edit Button ── */
+/* ── Nút sửa ── */
 .edit-btn-wrap { padding: 12px 14px 0; }
 .edit-btn {
   width: 100%; height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -412,7 +408,7 @@ onMounted(loadProfile);
 }
 .edit-btn:active { opacity: 0.88; }
 
-/* ── Menu section ── */
+/* ── Vùng tính năng ── */
 .menu-section { padding: 16px 14px 0; }
 .menu-group-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: #aaa; font-weight: 700; margin: 0 4px 10px; }
 .menu-card { background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.06); margin-bottom: 16px; }
@@ -436,7 +432,7 @@ onMounted(loadProfile);
 }
 .logout-btn:active { background: #fff5f5; }
 
-/* ── Edit Popup ── */
+/* ── Khung sửa dạng Popup ── */
 .edit-popup { padding: 0 0 20px; }
 .edit-popup-header {
   display: flex; justify-content: space-between; align-items: center;

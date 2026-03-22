@@ -1,6 +1,6 @@
 <template>
   <div class="register-page">
-    <!-- Hero -->
+    <!-- Khối ảnh nền nổi bật -->
     <div class="reg-hero">
       <div class="hero-circles">
         <div class="circle c1"></div>
@@ -18,7 +18,7 @@
       <p class="hero-sub">Tham gia hệ thống cứu hộ thông minh</p>
     </div>
 
-    <!-- Card -->
+    <!-- Thẻ đăng ký -->
     <div class="reg-card">
       <van-form @submit="onSubmit">
 
@@ -65,7 +65,7 @@
             class="custom-field" :border="false" />
         </div>
 
-        <!-- Mechanic toggle -->
+        <!-- Nút bật tắt chọn Thợ -->
         <div class="mechanic-row">
           <div>
             <div class="mech-label">Đăng ký là Thợ Cứu Hộ</div>
@@ -110,6 +110,10 @@ const onSubmit = async (values) => {
     showToast('Mật khẩu không khớp!');
     return;
   }
+  if (password.value.length < 6) {
+    showToast('Mật khẩu phải có ít nhất 6 ký tự!');
+    return;
+  }
   loading.value = true;
   try {
     await axios.post('/api/users/register/', {
@@ -142,7 +146,7 @@ const onSubmit = async (values) => {
   overflow: hidden;
 }
 
-/* Hero */
+/* ─── Ảnh Bìa Nổi Bật ─── */
 .reg-hero {
   width: 100%;
   position: relative;
@@ -177,7 +181,7 @@ const onSubmit = async (values) => {
 .hero-title  { color: #fff; font-size: 22px; font-weight: 700; margin: 0 0 4px; }
 .hero-sub    { color: rgba(255,255,255,0.75); font-size: 12px; margin: 0; }
 
-/* Card */
+/* ─── Thẻ Thông Tin Đăng Ký ─── */
 .reg-card {
   width: calc(100% - 32px);
   max-width: 420px;
@@ -191,7 +195,7 @@ const onSubmit = async (values) => {
   margin-bottom: 32px;
 }
 
-/* Section labels */
+/* Tiêu đề phân mục */
 .section-label {
   font-size: 11px;
   font-weight: 700;
@@ -203,7 +207,7 @@ const onSubmit = async (values) => {
 .section-label:first-of-type { margin-top: 0; }
 .opt { font-weight: 400; text-transform: none; letter-spacing: 0; }
 
-/* Input groups */
+/* Nhóm ô nhập liệu */
 .input-group {
   display: flex;
   align-items: center;
@@ -228,7 +232,7 @@ const onSubmit = async (values) => {
 :deep(.custom-field .van-field__control) { font-size: 14px; color: #1a1a2e; }
 :deep(.custom-field .van-field__control::placeholder) { color: #bbb; }
 
-/* Mechanic toggle */
+/* Nút chuyển đổi (Đăng ký làm thợ) */
 .mechanic-row {
   display: flex;
   align-items: center;
@@ -241,8 +245,7 @@ const onSubmit = async (values) => {
 .mech-label { font-size: 14px; font-weight: 600; color: #1a1a2e; }
 .mech-sub   { font-size: 11px; color: #999; margin-top: 2px; }
 
-/* Buttons */
-/* Eye toggle */
+/* Nút bật tắt ẩn/hiển thị mật khẩu */
 .toggle-eye {
   padding: 0 4px;
   cursor: pointer;
