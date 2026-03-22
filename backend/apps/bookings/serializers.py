@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Booking, ChatMessage
+from .models import Booking, ChatMessage, Complaint
 from apps.users.serializers import UserSerializer
 
 class BookingSerializer(serializers.ModelSerializer):
@@ -52,3 +52,35 @@ class ChatMessageSerializer(serializers.ModelSerializer):
 
     def get_is_mechanic(self, obj):
         return getattr(obj.sender, 'is_mechanic', False)
+
+
+class ComplaintSerializer(serializers.ModelSerializer):
+    """
+    Serializer cho việc tạo và hiển thị khiếu nại (hỗ trợ cả Khách hàng và Thợ).
+    """
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    accused_user_name = serializers.CharField(source='accused_user.username', read_only=True, default='')
+
+    class Meta:
+        model = Complaint
+        fields = ['id', 'created_by', 'created_by_name', 'accused_user', 'accused_user_name', 'booking',
+                  'reason', 'evidence_image', 'status', 'admin_note', 'created_at', 'updated_at']
+        read_only_fields = ['created_by', 'status', 'admin_note', 'created_at', 'updated_at']
+
+    def create(self, validated_data):
+        # Tự động gán created_by là người đang đăng nhập
+        user = self.context['request'].user
+        validated_data['created_by'] = user
+        
+        # Bóc tách accused_user tự động từ booking nếu có truyền booking
+        booking = validated_data.get('booking')
+        if booking and not validated_data.get('accused_user'):
+            # Nếu người khiếu nại là Thợ -> Bị cáo là Khách hàng
+            if getattr(user, 'is_mechanic', False):
+                validated_data['accused_user'] = booking.customer
+            # Ngược lại Khách hàng khiếu nại -> Bị cáo là Thợ
+            else:
+                if booking.mechanic:
+                    validated_data['accused_user'] = booking.mechanic.user if hasattr(booking.mechanic, 'user') else booking.mechanic
+            
+        return super().create(validated_data)

@@ -13,7 +13,7 @@ except ImportError:
 
 from .models import AIReport
 
-# ─── Generation config (deterministic output) ─────────────────────────────────
+# ─── Thiết lập biến Môi trường Sinh văn bản (Trực quan và Không ngẫu nhiên) ──────────────────────
 def get_gen_config():
     if not GEMINI_AVAILABLE:
         return None
@@ -23,7 +23,7 @@ def get_gen_config():
         top_k=1,
     )
 
-# ─── Prompt ───────────────────────────────────────────────────────────────────
+# ─── Kịch bản Prompt dành riêng để rèn luyện AI chẩn đoán Âm thanh cơ học ─────────────────────────────────────────────────────
 SOUND_PROMPT = """
 Bạn là thợ máy, chuyên gia cơ khí xe máy và ô tô dạn dày kinh nghiệm tại Việt Nam. 
 Nhiệm vụ của bạn là LẮNG NGHE ĐOẠN VIDEO/AUDIO VÀ CHẨN ĐOÁN BỆNH XE SỬ DỤNG ĐÚNG THUẬT NGỮ THỢ VIỆT NAM (như lột dên, lupe, kêu cò, xước nòng, rớt đầu, v.v.).
@@ -98,7 +98,7 @@ NẾU KHÔNG CÓ TIẾNG ĐỘNG CƠ CƠ KHÍ NÀO CHỈ TOÀN TIẾNG NGƯỜI/
 
 
 def save_sound_report(request, result):
-    """Save AI sound diagnosis result to DB."""
+    """Hàm tĩnh hỗ trợ Record lại Phân tích Âm thanh của AI xuống DB."""
     try:
         AIReport.objects.create(
             customer=request.user if request.user.is_authenticated else None,
@@ -120,7 +120,7 @@ def save_sound_report(request, result):
 
 
 class AnalyzeSoundView(APIView):
-    """AI sound diagnosis using Gemini 2.5 Flash native audio understanding."""
+    """API Chẩn đoán File âm thanh thông qua Base64 cho xe bằng sức mạnh Gemini 2.5 Flash Native Audio."""
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
@@ -128,14 +128,14 @@ class AnalyzeSoundView(APIView):
         if not audio_file:
             return Response({"error": "Vui lòng gửi file âm thanh."}, status=400)
 
-        # Validate size (max 10MB)
+        # Rào chắn bảo mật 1: Từ chối dung lượng vượt trên 10MB
         if audio_file.size > 10 * 1024 * 1024:
             return Response({"error": "File âm thanh quá lớn (tối đa 10MB)."}, status=400)
 
         audio_data = audio_file.read()
         content_type = audio_file.content_type or 'audio/webm'
 
-        # Map to supported MIME types
+        # Ánh xạ/Bình thường hóa mã định dạng MIME cho file Audio theo tiêu chuẩn input của Gemini API
         mime_map = {
             'audio/webm': 'audio/webm',
             'audio/ogg':  'audio/ogg',
@@ -169,7 +169,7 @@ class AnalyzeSoundView(APIView):
             response = None
             last_error = None
 
-            # ── Try model chain: 2.5 Flash first, then fallbacks ──
+            # ── Giải thuật Fallback Model (Thử 2.5 Flash hỗ trợ Audio gốc -> 2.0 -> 1.5) ──
             for model_name in [
                 'gemini-2.5-flash',
                 'gemini-2.0-flash',

@@ -14,9 +14,9 @@ class CreateReviewView(generics.CreateAPIView):
 
         mechanic_input  = request.data.get('mechanic')
         appointment_id  = request.data.get('appointment')
-        sos_booking_id  = request.data.get('sos_booking_id')   # NEW: sent by frontend for SOS reviews
+        sos_booking_id  = request.data.get('sos_booking_id')   # Gửi từ frontend khi đánh giá sau SOS
 
-        # ── Resolve mechanic ──────────────────────────────────────
+        # ── Xác định MechanicProfile ─────────────────────────────────────────────
         mechanic_profile = None
         if mechanic_input:
             mechanic_profile = MechanicProfile.objects.filter(pk=mechanic_input).first()
@@ -29,23 +29,23 @@ class CreateReviewView(generics.CreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # ── Duplicate guard ────────────────────────────────────────
+        # ── Chống đánh giá trùng lặp ──────────────────────────────────────────
         if appointment_id:
-            # Maintenance appointment review — one per appointment
+            # Đánh giá lịch hẹn bảo dưỡng — mỗi lịch hẹn chỉ 1 đánh giá
             if Review.objects.filter(appointment_id=appointment_id).exists():
                 return Response(
                     {"error": "Đơn dịch vụ này đã được đánh giá rồi."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         else:
-            # SOS review — one per specific SOS booking
+            # Đánh giá SOS — mỗi booking chỉ 1 đánh giá
             if sos_booking_id and Review.objects.filter(sos_booking_id=sos_booking_id).exists():
                 return Response(
                     {"error": "Chuyến cứu hộ này đã được đánh giá rồi."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        # ── Build data and save ────────────────────────────────────
+        # ── Xây dựng dữ liệu và lưu ──────────────────────────────────────────
         data = {
             "mechanic":    mechanic_profile.pk,
             "appointment": appointment_id,
@@ -57,7 +57,7 @@ class CreateReviewView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         review = serializer.save(customer=request.user)
 
-        # Link to SOS booking if provided
+        # Gắn review với booking SOS nếu có truyền booking_id
         if sos_booking_id:
             try:
                 from apps.bookings.models import Booking
@@ -65,6 +65,6 @@ class CreateReviewView(generics.CreateAPIView):
                 review.sos_booking = booking
                 review.save(update_fields=['sos_booking'])
             except Exception:
-                pass  # don't fail the review if booking link fails
+                pass  # Không làm thất bại review nếu không tìm được booking
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)

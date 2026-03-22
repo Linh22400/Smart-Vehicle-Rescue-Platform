@@ -16,24 +16,23 @@ except ImportError:
     GEMINI_AVAILABLE = False
 
 
-# ─── Deterministic generation config ───────────────────────────────────────
-# temperature=0 → greedy decoding → same input always gives same output
-# This is the single most important fix for price consistency.
-GEN_CONFIG = None  # lazily initialised after genai is imported
+# ─── Cấu hình tham số Generation (Loại bỏ tính ngẫu nhiên) ─────────────────────────────
+# Sử dụng temperature=0 để cố định đầu ra (greedy decoding), đảm bảo ước tính chi phí luôn nhất quán cho cùng một Input.
+GEN_CONFIG = None  # Áp dụng chiến lược kiểm tra Lazy (Lazy initialization)
 
 def get_gen_config():
     global GEN_CONFIG
     if GEN_CONFIG is None and GEMINI_AVAILABLE:
         GEN_CONFIG = genai.types.GenerationConfig(
-            temperature=0,       # no randomness
-            top_p=0.05,          # very tight nucleus
-            top_k=1,             # only pick the most likely token
+            temperature=0,       # Vô hiệu hóa tính ngẫu nhiên
+            top_p=0.05,          # Thu hẹp nucleus sampling tối đa
+            top_k=1,             # Chỉ xét token có xác suất cao nhất tại mỗi bước sinh từ
         )
     return GEN_CONFIG
 
 
 def build_prompt() -> str:
-    """Build prompt with injected current date + price anchor table."""
+    """Hàm khởi tạo Prompt chi tiết: Tích hợp ngày giờ thực tế và Dữ liệu mức giá sàn dịch vụ bảo dưỡng tại Việt Nam."""
     from datetime import datetime
     now = datetime.now()
     date_str = now.strftime("%d/%m/%Y")
@@ -127,7 +126,7 @@ def get_fallback_result(reason=""):
 
 
 def save_report(request, result: dict):
-    """Save AI result to DB. Import here to avoid circular at module level."""
+    """Hàm tĩnh để lưu dữ liệu kết quả từ AI phân tích vào DB cục bộ (tránh Circular Import)."""
     from .models import AIReport
     try:
         customer = request.user if request.user.is_authenticated else None
@@ -146,12 +145,12 @@ def save_report(request, result: dict):
             ai_powered=result.get('ai_powered', True),
         )
     except Exception:
-        pass  # Never crash the analysis if saving fails
+        pass  # Không để lỗi lưu DB làm crash luồng phân tích
 
 
 class AnalyzeDamageView(APIView):
     parser_classes = (MultiPartParser, FormParser)
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
         file_obj = request.FILES.get('image')
@@ -183,9 +182,9 @@ class AnalyzeDamageView(APIView):
 
             response = None
             last_error = None
-            cfg = get_gen_config()  # temperature=0 for consistency
+            cfg = get_gen_config()  # Cố định temparature=0 cho kết quả nhất quán
 
-            # ── 1. Try gemini-2.0-flash WITH Google Search grounding ──
+            # ── 1. Giải pháp tối ưu: Truy vấn gemini-2.0-flash đi kèm công cụ Google Search (Kết nối Web) ──
             try:
                 model = genai.GenerativeModel(
                     'gemini-2.0-flash',
@@ -200,7 +199,7 @@ class AnalyzeDamageView(APIView):
                 response = None
                 last_error = grounding_err
 
-            # ── 2. Fallback chain without grounding ──
+            # ── 2. Fallback xử lý: Hạ cấp API Model nếu Search Grounding gặp sự cố ──
             if response is None:
                 for model_name in [
                     'gemini-2.0-flash',
@@ -223,7 +222,7 @@ class AnalyzeDamageView(APIView):
                 raise last_error
 
             raw_text = response.text.strip()
-            # Strip markdown code fences if present
+            # Xử lý vệ sinh dữ liệu: Bỏ khối mã Markdown nếu model gen ra thừa
             if raw_text.startswith("```"):
                 raw_text = raw_text.split("```")[1]
                 if raw_text.startswith("json"):
@@ -232,7 +231,7 @@ class AnalyzeDamageView(APIView):
 
             result = json.loads(raw_text)
             result['ai_powered'] = True
-            # Normalise list field to avoid frontend issues
+            # Chuẩn hóa trường list để tránh lỗi frontend
             if not isinstance(result.get('parts_needed'), list):
                 result['parts_needed'] = []
             save_report(request, result)
@@ -271,11 +270,11 @@ class AnalyzeDamageView(APIView):
             return Response(result)
 
 # ─────────────────────────────────────────
-#  AIReport History & Management Views
+#  Xem và quản lý lịch sử báo cáo AI
 # ─────────────────────────────────────────
 
 class AIReportListView(APIView):
-    """GET  /api/ai/history/  – list current user's AI reports (newest first)"""
+    """Truy xuất danh sách báo cáo chẩn đoán AI của Khách hàng đang đăng nhập (Sắp xếp mới nhất)."""
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
@@ -302,7 +301,7 @@ class AIReportListView(APIView):
 
 
 class AIReportDeleteView(APIView):
-    """DELETE  /api/ai/history/<id>/delete/  – delete one report (owner only)"""
+    """DELETE  /api/ai/history/<id>/delete/  – xóa một báo cáo (chỉ chủ sở hữu)"""
     permission_classes = [permissions.IsAuthenticated]
 
     def delete(self, request, pk):
@@ -317,11 +316,9 @@ class AIReportDeleteView(APIView):
 
 class AIReportCleanupView(APIView):
     """
-    DELETE  /api/ai/history/cleanup/
-    Deletes all reports older than `days` days for the current user.
-    Query param: ?days=30  (default 60)
-
-    Server-side: Can also be scheduled as a cron job to auto-clean ALL users.
+    API Xóa hàng loạt thẻ báo cáo AI cho người dùng hiện hành.
+    Query param tùy chọn: ?days=30 (Ví dụ: Xóa các báo cáo cũ hơn 30 ngày).
+    Tương lai quản trị viên có thể gắn hàm này vào Cronjob để làm sạch bộ nhớ cơ sở dữ liệu định kỳ.
     """
     permission_classes = [permissions.IsAuthenticated]
 

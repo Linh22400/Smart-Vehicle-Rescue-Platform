@@ -1,69 +1,64 @@
 import math
 from rest_framework.views import APIView
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, status, views
 from rest_framework.response import Response
 from apps.users.models import MechanicProfile
-from .models import Booking, ChatMessage
-from .serializers import MechanicDistanceSerializer, BookingSerializer, ChatMessageSerializer
+from .models import Booking, ChatMessage, Complaint
+from .serializers import MechanicDistanceSerializer, BookingSerializer, ChatMessageSerializer, ComplaintSerializer
 
 class SOSFindMechanicsView(APIView):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
         """
-        Find 5 nearest mechanics within 5km.
-        Input: { "latitude": float, "longitude": float }
+        Gợi ý 5 thợ cứu hộ gần nhất trong bán kính 5km.
+        Dữ liệu yêu cầu: { "latitude": float, "longitude": float }
         """
         try:
             cust_lat = float(request.data.get('latitude'))
             cust_lon = float(request.data.get('longitude'))
-            vehicle_type = request.data.get('vehicle_type', 'BIKE') # Default to BIKE if not provided
+            vehicle_type = request.data.get('vehicle_type', 'BIKE')  # Mặc định xe máy
         except (TypeError, ValueError):
-            return Response({"error": "Invalid coordinates"}, status=400)
+            return Response({"error": "Tọa độ không hợp lệ"}, status=400)
 
-        # Haversine Formula
+        # Công thức Haversine tính khoảng cách giữa 2 tọa độ GPS
         def haversine(lat1, lon1, lat2, lon2):
-            R = 6371  # Earth radius in km
+            R = 6371  # Bán kính Trái Đất (km)
             dlat = math.radians(lat2 - lat1)
             dlon = math.radians(lon2 - lon1)
             a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
             c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
             return R * c
 
-        # Filter mechanics who are available AND service the requested vehicle type (or 'ALL')
+        # Lọc thợ đang sẵn sàng và phục vụ đúng loại xe (hoặc ALL)
         mechanics = MechanicProfile.objects.filter(is_available=True, vehicle_type__in=[vehicle_type, 'ALL'])
         results = []
-        
+
         for mech in mechanics:
             if mech.latitude is not None and mech.longitude is not None:
                 dist = haversine(cust_lat, cust_lon, mech.latitude, mech.longitude)
-                if dist <= 5.0:  # 5km radius
-                    # Append mech object with added distance attribute for serializer
+                if dist <= 5.0:  # Bán kính 5km
                     mech.distance_km = round(dist, 2)
                     results.append(mech)
 
-        # Sort by distance
+        # Sắp xếp theo khoảng cách gần nhất
         results.sort(key=lambda x: x.distance_km)
         top_5 = results[:5]
-        
+
         serializer = MechanicDistanceSerializer(top_5, many=True)
         return Response(serializer.data)
 
 class CreateBookingView(generics.CreateAPIView):
-    """
-    Actually book a specific mechanic.
-    """
+    """Hỗ trợ Khách hàng tạo mới Đơn yêu cầu cứu hộ Gửi Thợ."""
     serializer_class = BookingSerializer
-    permission_classes = [permissions.IsAuthenticated] # Keep strict for creating bookings, simpler to debug if login works
+    permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
         vehicle_type = self.request.data.get('vehicle_type', 'BIKE')
         serializer.save(customer=self.request.user, vehicle_type=vehicle_type)
 
 class BookingHistoryView(generics.ListAPIView):
-    """
-    List all bookings for the current user (Customer).
-    """
+    """Lấy danh sách các đơn SOS mà Khách hàng đã yêu cầu xử lý từ trước đến nay."""
     serializer_class = BookingSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -71,15 +66,11 @@ class BookingHistoryView(generics.ListAPIView):
         return Booking.objects.filter(customer=self.request.user).order_by('-created_at')
 
 class MechanicBookingListView(generics.ListAPIView):
-    """
-    List bookings assigned to the mechanic or pending near them (simplified to assigned/pending for MVP).
-    """
+    """Liệt kê danh sách các đơn SOS mà Thợ đã tiếp nhận phục vụ."""
     serializer_class = BookingSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Return bookings where this user is the mechanic OR (MVP) just all pending for demo?
-        # Better: Bookings where mechanic is THIS user.
         return Booking.objects.filter(mechanic=self.request.user).order_by('-created_at')
 
 class UpdateBookingStatusView(APIView):
@@ -89,24 +80,23 @@ class UpdateBookingStatusView(APIView):
         try:
             booking = Booking.objects.get(pk=pk)
         except Booking.DoesNotExist:
-            return Response({"error": "Booking not found"}, status=404)
-        # Check permissions
-        print(f"DEBUG: booking.mechanic={booking.mechanic}, request.user={request.user}, ids=({getattr(booking.mechanic, 'id', None)}, {request.user.id})")
+            return Response({"error": "Không tìm thấy đơn"}, status=404)
+
         is_owner = (booking.customer == request.user)
         is_assigned_mechanic = (booking.mechanic == request.user)
 
         new_status = request.data.get('status')
 
-        # Customer can only cancel
+        # Khách hàng chỉ được phép hủy đơn
         if is_owner and not is_assigned_mechanic:
             if new_status != 'CANCELLED':
-                return Response({"error": "Customers can only cancel bookings"}, status=403)
-        
-        # Only assigned mechanic can accept/complete
+                return Response({"error": "Khách chỉ được hủy đơn"}, status=403)
+
+        # Thợ được phép đổi sang ACCEPTED, COMPLETED, CANCELLED
         elif is_assigned_mechanic:
-            pass # Mechanic can change to ACCEPTED, COMPLETED, CANCELLED
+            pass
         else:
-             return Response({"error": "Not authorized to update this booking"}, status=403)
+            return Response({"error": "Không có quyền cập nhật đơn này"}, status=403)
 
         if new_status in ['ACCEPTED', 'ON_THE_WAY', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']:
             if new_status == 'COMPLETED':
@@ -119,14 +109,14 @@ class UpdateBookingStatusView(APIView):
             booking.status = new_status
             booking.save()
             return Response(BookingSerializer(booking).data)
-        
-        return Response({"error": "Invalid status"}, status=400)
+
+        return Response({"error": "Trạng thái không hợp lệ"}, status=400)
 
 
 class BookingTrackingView(APIView):
     """
-    GET endpoint for customers to poll the real-time location of their mechanic.
-    Returns mechanic & customer coordinates + current booking status.
+    Theo dõi luồng tọa độ liên tục (Polling) giữa vị trí của Thợ với Khách.
+    Cho phép Khách hàng xem vị trí thợ đang tiến đến trên bản đồ.
     """
     permission_classes = [permissions.IsAuthenticated]
 
@@ -134,11 +124,11 @@ class BookingTrackingView(APIView):
         try:
             booking = Booking.objects.get(pk=pk)
         except Booking.DoesNotExist:
-            return Response({"error": "Booking not found"}, status=404)
+            return Response({"error": "Không tìm thấy đơn"}, status=404)
 
-        # Only booking owner or assigned mechanic can track
+        # Chỉ khách hoặc thợ của đơn mới được xem
         if booking.customer != request.user and booking.mechanic != request.user:
-            return Response({"error": "Not authorized"}, status=403)
+            return Response({"error": "Không có quyền truy cập"}, status=403)
 
         mechanic_data = {"latitude": None, "longitude": None, "username": None}
         if booking.mechanic:
@@ -163,30 +153,28 @@ class BookingTrackingView(APIView):
 
 
 class ConfirmPaymentView(APIView):
-    """
-    Customer confirms payment after booking is completed.
-    """
+    """Khách hàng xác nhận đã thanh toán sau khi đơn hoàn thành."""
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
         try:
             booking = Booking.objects.get(pk=pk)
         except Booking.DoesNotExist:
-            return Response({"error": "Booking not found"}, status=404)
+            return Response({"error": "Không tìm thấy đơn"}, status=404)
 
-        # Only the booking owner (customer) can confirm payment
+        # Chỉ chủ đơn (khách hàng) mới được xác nhận thanh toán
         if booking.customer != request.user:
-            return Response({"error": "Not authorized"}, status=403)
+            return Response({"error": "Không có quyền"}, status=403)
 
         if booking.status != 'COMPLETED':
-            return Response({"error": "Booking must be completed before payment"}, status=400)
+            return Response({"error": "Đơn phải hoàn thành trước khi thanh toán"}, status=400)
 
         if booking.payment_status == 'PAID':
             return Response({"error": "Đơn này đã được thanh toán rồi"}, status=400)
 
         payment_method = request.data.get('payment_method')
         if payment_method not in ['CASH', 'TRANSFER']:
-            return Response({"error": "Invalid payment method. Use CASH or TRANSFER"}, status=400)
+            return Response({"error": "Phương thức thanh toán không hợp lệ (CASH hoặc TRANSFER)"}, status=400)
 
         booking.payment_method = payment_method
         booking.payment_status = 'PENDING'
@@ -195,24 +183,43 @@ class ConfirmPaymentView(APIView):
         return Response(BookingSerializer(booking).data)
 
 class VerifyPaymentView(APIView):
-    """
-    Mechanic verifies that payment is received.
-    """
+    """Thợ xác nhận đã nhận được tiền thanh toán."""
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
         try:
             booking = Booking.objects.get(pk=pk)
         except Booking.DoesNotExist:
-            return Response({"error": "Booking not found"}, status=404)
+            return Response({"error": "Không tìm thấy đơn"}, status=404)
 
         if booking.mechanic != request.user:
-            return Response({"error": "Not authorized to verify payment for this booking"}, status=403)
+            return Response({"error": "Không có quyền xác nhận thanh toán"}, status=403)
 
         if booking.payment_status != 'PENDING':
-            return Response({"error": "Booking payment is not pending"}, status=400)
+            return Response({"error": "Thanh toán không ở trạng thái chờ"}, status=400)
 
         booking.payment_status = 'PAID'
+        booking.save(update_fields=['payment_status'])
+
+        return Response(BookingSerializer(booking).data)
+
+class RejectPaymentView(APIView):
+    """Thợ từ chối thanh toán, đặt lại trạng thái về UNPAID."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            booking = Booking.objects.get(pk=pk)
+        except Booking.DoesNotExist:
+            return Response({"error": "Không tìm thấy đơn"}, status=404)
+
+        if booking.mechanic != request.user:
+            return Response({"error": "Không có quyền từ chối thanh toán"}, status=403)
+
+        if booking.payment_status != 'PENDING':
+            return Response({"error": "Thanh toán không ở trạng thái chờ"}, status=400)
+
+        booking.payment_status = 'UNPAID'
         booking.save(update_fields=['payment_status'])
 
         return Response(BookingSerializer(booking).data)
@@ -227,11 +234,11 @@ class ChatListView(generics.ListAPIView):
             booking = Booking.objects.get(id=booking_id)
         except Booking.DoesNotExist:
             return ChatMessage.objects.none()
-        
-        # Security: only customer or mechanic of the booking can view chats
+
+        # Bảo mật: chỉ khách hoặc thợ của đơn mới xem được chat
         if booking.customer != self.request.user and booking.mechanic != self.request.user:
             return ChatMessage.objects.none()
-            
+
         return booking.messages.all()
 
 class ChatSendView(APIView):
@@ -241,16 +248,16 @@ class ChatSendView(APIView):
         try:
             booking = Booking.objects.get(id=pk)
         except Booking.DoesNotExist:
-            return Response({"error": "Booking not found"}, status=404)
+            return Response({"error": "Không tìm thấy đơn"}, status=404)
 
         if booking.customer != request.user and booking.mechanic != request.user:
-            return Response({"error": "Not authorized to send message to this booking"}, status=403)
+            return Response({"error": "Không có quyền gửi tin nhắn cho đơn này"}, status=403)
 
         text = request.data.get('text', '').strip()
         image = request.FILES.get('image')
 
         if not text and not image:
-            return Response({"error": "Message text or image is required"}, status=400)
+            return Response({"error": "Cần có nội dung hoặc ảnh"}, status=400)
 
         msg = ChatMessage.objects.create(
             booking=booking,
@@ -259,3 +266,17 @@ class ChatSendView(APIView):
             image=image
         )
         return Response(ChatMessageSerializer(msg).data, status=status.HTTP_201_CREATED)
+
+
+class CreateComplaintView(generics.CreateAPIView):
+    """
+    API để Khách hàng / Thợ tạo gửi file bằng chứng khiếu nại (bị hủy kèo, thợ bỏ trốn, khách không trả tiền).
+    Phương thức: POST /api/bookings/complaints/
+    Tham số (Body request): booking (id), reason (nội dung), evidence_image (file upload đính kèm)
+    """
+    queryset = Complaint.objects.all()
+    serializer_class = ComplaintSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    # Phương thức "create" sẽ được tùy biến hoàn toàn bởi Serializer.
+    # Nhiệm vụ: Tự nhận diện ID Khách hàng đang gọi, trích xuất ID người bị tố cáo từ Đơn.

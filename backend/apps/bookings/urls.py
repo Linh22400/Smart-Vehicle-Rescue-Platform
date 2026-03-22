@@ -2,8 +2,10 @@ from django.urls import path
 from .views import (
     SOSFindMechanicsView, CreateBookingView, BookingHistoryView, 
     MechanicBookingListView, UpdateBookingStatusView, BookingTrackingView, 
-    ConfirmPaymentView, VerifyPaymentView, ChatListView, ChatSendView
+    ConfirmPaymentView, VerifyPaymentView, RejectPaymentView, ChatListView, ChatSendView,
+    CreateComplaintView
 )
+from .heatmap_view import HeatmapDataView
 
 urlpatterns = [
     path('sos/', SOSFindMechanicsView.as_view(), name='sos-find-mechanics'),
@@ -14,6 +16,9 @@ urlpatterns = [
     path('<int:pk>/tracking/', BookingTrackingView.as_view(), name='booking-tracking'),
     path('<int:pk>/confirm-payment/', ConfirmPaymentView.as_view(), name='confirm-payment'),
     path('<int:pk>/verify-payment/', VerifyPaymentView.as_view(), name='verify-payment'),
+    path('<int:pk>/reject-payment/', RejectPaymentView.as_view(), name='reject-payment'),
     path('<int:pk>/chat/', ChatListView.as_view(), name='chat-list'),
     path('<int:pk>/chat/send/', ChatSendView.as_view(), name='chat-send'),
+    path('heatmap/', HeatmapDataView.as_view(), name='heatmap-data'),
+    path('complaints/', CreateComplaintView.as_view(), name='create-complaint'),
 ]

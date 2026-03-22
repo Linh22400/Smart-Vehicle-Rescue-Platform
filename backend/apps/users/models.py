@@ -3,7 +3,7 @@ from django.contrib.auth.models import AbstractUser
 
 class CustomUser(AbstractUser):
     """
-    Custom user model to distinguish between Customer and Mechanic.
+    Model user tùy chỉnh — phân biệt Khách hàng và Thợ.
     """
     is_mechanic = models.BooleanField(default=False)
     phone_number = models.CharField(max_length=15, blank=True, null=True)
@@ -14,7 +14,7 @@ class CustomUser(AbstractUser):
 
 class MechanicProfile(models.Model):
     """
-    Profile for mechanics with location and availability content.
+    Hồ sơ thợ lưu vị trí GPS, trạng thái sẵn sàng và chuyên môn.
     """
     VEHICLE_CHOICES = (
         ('BIKE', 'Xe máy'),
@@ -34,4 +34,15 @@ class MechanicProfile(models.Model):
     bank_account_name = models.CharField(max_length=100, blank=True, null=True, help_text="Tên chủ tài khoản")
 
     def __str__(self):
-        return f"Mechanic: {self.user.username}"
+        return f"Thợ: {self.user.username}"
+
+
+class MechanicPerformance(MechanicProfile):
+    """
+    Proxy Model riêng cho Admin: Lập Bảng xếp hạng Hiệu suất Thợ.
+    Cho phép gom nhóm dữ liệu ảo mà không làm tạo thêm bảng mới trong DB.
+    """
+    class Meta:
+        proxy = True
+        verbose_name = 'Hiệu suất Thợ'
+        verbose_name_plural = 'Bảng Xếp Hạng Hiệu Suất'

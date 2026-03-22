@@ -6,21 +6,16 @@ from apps.users.models import MechanicProfile
 from .serializers import MechanicWithServicesSerializer, AppointmentSerializer, MechanicServiceSerializer
 
 class GarageListView(generics.ListAPIView):
-    """
-    List mechanics who offer services (acting as Garages).
-    """
+    """Danh sách thợ có đăng ký dịch vụ (đóng vai trò gara)."""
     serializer_class = MechanicWithServicesSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Only return mechanics that have at least one service defined
-        # Only return mechanics that have at least one service defined
+        # Chỉ trả thợ có ít nhất 1 dịch vụ được định nghĩa
         return MechanicProfile.objects.filter(services__isnull=False).distinct()
 
 class MechanicServiceListCreateView(generics.ListCreateAPIView):
-    """
-    List all services of the logged-in mechanic, or create a new service.
-    """
+    """Xem danh sách dịch vụ của thợ hiện tại hoặc tạo mới."""
     serializer_class = MechanicServiceSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -33,9 +28,7 @@ class MechanicServiceListCreateView(generics.ListCreateAPIView):
         serializer.save(mechanic=self.request.user.mechanic_profile)
 
 class MechanicServiceDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    Retrieve, update or delete a service for the logged-in mechanic.
-    """
+    """Xem, sửa hoặc xóa một dịch vụ của thợ hiện tại."""
     serializer_class = MechanicServiceSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -63,7 +56,7 @@ class MechanicAppointmentListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Check if user is mechanic
+        # Kiểm tra user có phải thợ không
         if not hasattr(self.request.user, 'mechanic_profile'):
             return Appointment.objects.none()
         return Appointment.objects.filter(mechanic=self.request.user.mechanic_profile).order_by('-appointment_time')
@@ -75,21 +68,22 @@ class UpdateAppointmentStatusView(APIView):
         try:
             appt = Appointment.objects.get(pk=pk)
         except Appointment.DoesNotExist:
-            return Response({"error": "Appointment not found"}, status=404)
-        
-        # Check permission
+            return Response({"error": "Không tìm thấy lịch hẹn"}, status=404)
+
+        # Kiểm tra quyền thao tác
         is_owner = (appt.customer == request.user)
         is_mechanic = (appt.mechanic.user == request.user)
-        
+
         new_status = request.data.get('status')
 
+        # Khách chỉ được hủy lịch hẹn
         if is_owner and not is_mechanic:
             if new_status != 'CANCELLED':
-                return Response({"error": "Customers can only cancel appointments"}, status=403)
+                return Response({"error": "Khách chỉ được hủy lịch hẹn"}, status=403)
         elif is_mechanic:
-             pass
+            pass
         else:
-             return Response({"error": "Not authorized"}, status=403)
+            return Response({"error": "Không có quyền"}, status=403)
 
         if new_status in ['CONFIRMED', 'COMPLETED', 'CANCELLED']:
             if new_status == 'CANCELLED':
@@ -97,8 +91,8 @@ class UpdateAppointmentStatusView(APIView):
             appt.status = new_status
             appt.save()
             return Response(AppointmentSerializer(appt).data)
-        
-        return Response({"error": "Invalid status"}, status=400)
+
+        return Response({"error": "Trạng thái không hợp lệ"}, status=400)
 
 
 class ConfirmAppointmentPaymentView(APIView):
@@ -108,20 +102,20 @@ class ConfirmAppointmentPaymentView(APIView):
         try:
             appt = Appointment.objects.get(pk=pk)
         except Appointment.DoesNotExist:
-            return Response({"error": "Appointment not found"}, status=404)
+            return Response({"error": "Không tìm thấy lịch hẹn"}, status=404)
 
         if appt.customer != request.user:
-            return Response({"error": "Not authorized"}, status=403)
+            return Response({"error": "Không có quyền"}, status=403)
 
         if appt.status != 'COMPLETED':
-            return Response({"error": "Appointment must be completed before payment"}, status=400)
+            return Response({"error": "Lịch hẹn phải hoàn thành trước khi thanh toán"}, status=400)
 
         if appt.payment_status == 'PAID':
             return Response({"error": "Đã thanh toán rồi"}, status=400)
 
         payment_method = request.data.get('payment_method')
         if payment_method not in ['CASH', 'TRANSFER']:
-            return Response({"error": "Invalid payment method"}, status=400)
+            return Response({"error": "Phương thức không hợp lệ (CASH hoặc TRANSFER)"}, status=400)
 
         appt.payment_method = payment_method
         appt.payment_status = 'PENDING'
@@ -130,24 +124,43 @@ class ConfirmAppointmentPaymentView(APIView):
         return Response(AppointmentSerializer(appt).data)
 
 class VerifyAppointmentPaymentView(APIView):
-    """
-    Mechanic verifies that appointment payment is received.
-    """
+    """Thợ xác nhận đã nhận được tiền của lịch hẹn."""
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
         try:
             appt = Appointment.objects.get(pk=pk)
         except Appointment.DoesNotExist:
-            return Response({"error": "Appointment not found"}, status=404)
+            return Response({"error": "Không tìm thấy lịch hẹn"}, status=404)
 
         if appt.mechanic.user != request.user:
-            return Response({"error": "Not authorized to verify payment for this appointment"}, status=403)
+            return Response({"error": "Không có quyền xác nhận thanh toán"}, status=403)
 
         if appt.payment_status != 'PENDING':
-            return Response({"error": "Appointment payment is not pending"}, status=400)
+            return Response({"error": "Thanh toán không ở trạng thái chờ"}, status=400)
 
         appt.payment_status = 'PAID'
+        appt.save(update_fields=['payment_status'])
+
+        return Response(AppointmentSerializer(appt).data)
+
+class RejectAppointmentPaymentView(APIView):
+    """Thợ từ chối thanh toán lịch hẹn, đặt lại về UNPAID."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            appt = Appointment.objects.get(pk=pk)
+        except Appointment.DoesNotExist:
+            return Response({"error": "Không tìm thấy lịch hẹn"}, status=404)
+
+        if appt.mechanic.user != request.user:
+            return Response({"error": "Không có quyền từ chối thanh toán"}, status=403)
+
+        if appt.payment_status != 'PENDING':
+            return Response({"error": "Thanh toán không ở trạng thái chờ"}, status=400)
+
+        appt.payment_status = 'UNPAID'
         appt.save(update_fields=['payment_status'])
 
         return Response(AppointmentSerializer(appt).data)

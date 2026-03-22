@@ -6,7 +6,7 @@ class Service(models.Model):
     mechanic = models.ForeignKey(MechanicProfile, on_delete=models.CASCADE, related_name='services')
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
-    price = models.DecimalField(max_digits=10, decimal_places=0) # VND, no cents
+    price = models.DecimalField(max_digits=10, decimal_places=0) # VNĐ, không có xu
     duration_minutes = models.IntegerField(default=30)
     
     def __str__(self):
@@ -40,13 +40,13 @@ class Appointment(models.Model):
     note = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    # Payment
+    # Thanh toán
     payment_method = models.CharField(max_length=10, choices=PAYMENT_METHOD_CHOICES, blank=True, default='')
     payment_status = models.CharField(max_length=10, choices=PAYMENT_STATUS_CHOICES, default='UNPAID')
     cancel_reason = models.TextField(blank=True, default='', help_text='Lý do hủy')
 
     def __str__(self):
-        return f"Appt #{self.id} - {self.customer.username} with {self.mechanic.user.username}"
+        return f"Lịch #{self.id} - {self.customer.username} với {self.mechanic.user.username}"
 
 class Review(models.Model):
     customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
@@ -58,13 +58,13 @@ class Review(models.Model):
         null=True, blank=True,
         related_name='review',
     )
-    rating = models.IntegerField(default=5) # 1-5
+    rating = models.IntegerField(default=5) # 1-5 sao
     comment = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        # Recalculate mechanic rating
+        # Tính lại điểm đánh giá trung bình của thợ
         reviews = self.mechanic.reviews.all()
         avg = reviews.aggregate(models.Avg('rating'))['rating__avg']
         self.mechanic.rating = round(avg, 1)
